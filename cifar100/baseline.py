@@ -38,7 +38,7 @@ def plot_loss(train_loss, val_loss):
     plt.legend(['train', 'val'], loc='upper left')
     plt.savefig('loss.png')
 
-def validation(val_loader, criterion):
+def validation(net, val_loader, criterion):
     correct = 0
     total = 0
     val_loss = 0
@@ -62,7 +62,7 @@ def validation(val_loader, criterion):
 
     return val_loss
 
-def train(net, epoch, criterion, optimizer, train_loader, val_loader, model_path):
+def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, model_path):
     train_loss, val_loss = [], []
     for ep in range(epoch):
         for i, data in enumerate(train_loader, 0):
@@ -83,7 +83,7 @@ def train(net, epoch, criterion, optimizer, train_loader, val_loader, model_path
                     (epoch, i, loss.item()))
         
         train_loss.append(loss.item() / batch_size)
-        val_loss.append(validation(val_loader, criterion))
+        val_loss.append(validation(net, val_loader, criterion))
 
         plot_loss(train_loss, val_loss)
 
@@ -105,4 +105,4 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss() #.cuda()
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-    train(net, criterion, optimizer, train_loader, val_loader, "baseline.pth")
+    train(net, batch_size, 250, criterion, optimizer, train_loader, val_loader, "baseline.pth")

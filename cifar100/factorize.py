@@ -12,8 +12,8 @@ class TuckerBlock(nn.Module):
 
         weight = net.weight.data.numpy()
 
-        # chin, chout = self.complete_rank(weight)
-        rank_in, rank_out = self.weakened_rank(weight)
+        rank_in, rank_out = self.complete_rank(weight)
+        # rank_in, rank_out = self.weakened_rank(weight)
 
         compress = nn.Conv2d(weight.shape[1], rank_in, kernel_size = 1, bias = False)
         core = nn.Conv2d(rank_in, rank_out, kernel_size = weight.shape[2], padding = padding, bias = False)
@@ -31,7 +31,7 @@ class TuckerBlock(nn.Module):
         restore.weight.data = torch.from_numpy(t.copy())
 
         if bias:
-            restore.bias.data = net.bias.data.numpy()
+            restore.bias.data = net.bias.data
 
         self.feature = nn.Sequential(compress, core, restore)
 
@@ -103,7 +103,7 @@ class MuscoBlock(nn.Module):
         restore.weight.data = torch.from_numpy(t.copy())
 
         if bias:
-            restore.bias.data = net.restore.bias.data.numpy()
+            restore.bias.data = net.feature[2].bias.data
 
         layers = [compress, core, restore]
 
@@ -134,7 +134,7 @@ def factorze(net):
             if (shape[1] > 3 and shape[2] > 1 and shape[3] > 1):
                 print(e + " is a worthy layer")
                 
-                setattr(net, e, TuckerBlock(layer))
+                setattr(net, e, TuckerBlock(layer, bias = True))
 
 def MuscoStep(net):
     for e in dir(net):
@@ -142,4 +142,4 @@ def MuscoStep(net):
         if isinstance(layer, TuckerBlock) or isinstance(layer, MuscoBlock):
             print("get Block " + e)
             
-            setattr(net, e, MuscoBlock(layer))
+            setattr(net, e, MuscoBlock(layer, bias = True))
