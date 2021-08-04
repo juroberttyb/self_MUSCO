@@ -129,10 +129,11 @@ class OutputTucker(nn.Module):
         return x
 
 def factorze(net):
-    for i in range(len(net)):
-        if isinstance(net[i], nn.Conv2d):
-            if (net.weight.data.numpy()[1] > 3
-                and net.weight.data.numpy()[2] > 1 
-                and net.weight.data.numpy()[3] > 1): # not the first layer
+    for e in dir(net):
+        layer = getattr(net, e)
+        if isinstance(layer, nn.Conv2d):
+            if (layer.weight.data.numpy()[1] > 3 # not the first layer
+                and layer.weight.data.numpy()[2] > 1 
+                and layer.weight.data.numpy()[3] > 1):
                 
-                net[i] = TuckerBlock(net[i])
+                setattr(net, e, TuckerBlock(layer))

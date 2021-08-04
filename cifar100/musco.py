@@ -82,11 +82,14 @@ if __name__ == '__main__':
     net.load_state_dict(torch.load('baseline.pth'))
     # info(net)
 
-    print(net.features[0])
+    # print(dir(net))
+    print(getattr(net, 'bn2_2'))
+    setattr(net, 'bn2_2', nn.BatchNorm2d(2))
+    print(getattr(net, 'bn2_2'))
+    print(dir(net))
 
-    l = [module for module in net.modules()]
-    for i in range(len(l)):
-        print([net.modules()][i])
+    # for name, param in net.named_parameters():
+    #     print(net[name])
 
     '''
     net = fr.factorze(net) # .cuda()
