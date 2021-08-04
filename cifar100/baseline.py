@@ -62,9 +62,9 @@ def validation(val_loader, criterion):
 
     return val_loss
 
-def train(net, criterion, optimizer, train_loader, val_loader, model_path):
-    epoch, train_loss, val_loss = 1, [], []
-    while True:
+def train(net, epoch, criterion, optimizer, train_loader, val_loader, model_path):
+    train_loss, val_loss = [], []
+    for ep in range(epoch):
         for i, data in enumerate(train_loader, 0):
             inputs, labels = data
             inputs, labels = inputs, labels #.cuda()
@@ -88,8 +88,6 @@ def train(net, criterion, optimizer, train_loader, val_loader, model_path):
         plot_loss(train_loss, val_loss)
 
         torch.save(net.state_dict(), model_path)
-
-        epoch = epoch + 1
 
 if __name__ == "__main__":
 
