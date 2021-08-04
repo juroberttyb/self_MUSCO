@@ -1,5 +1,4 @@
 import arch
-import FacArch as fa
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -9,8 +8,8 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import matplotlib.pyplot as plt
 from ptflops import get_model_complexity_info
-import RestoreFac as rf
 import factorize as fr
+import baseline as bl
 
 import time
 
@@ -78,37 +77,26 @@ def info(net):
     print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
 if __name__ == '__main__':
+    train_loader, val_loader = prepare_loader(batch_size=100)
+    criterion, lr = nn.CrossEntropyLoss(), 0.001 #.cuda()
+
     net = arch.Net()
     net.load_state_dict(torch.load('baseline.pth'))
-    # info(net)
-
-    fr.factorze(net)
-    # print(dir(net))
-    # print(net)
-    # info(net)
-
-    for i in range(3):
-        fr.MuscoStep(net)
-        # print(dir(net))
-        print(net)
-        # info(net)
-
-    '''
-    net = fr.factorze(net) # .cuda()
-    state_dict = torch.load('factorized.pth', map_location = 'cpu')
-    net.load_state_dict(state_dict)
+    validation(val_loader, criterion)
     info(net)
 
-    step = 2
+    fr.factorze(net)
+    validation(val_loader, criterion)
+    info(net)
+    train()
+
+    step = 3
     for i in range(step):
-        net = rf.resnet18(net) # .cuda()
+        fr.MuscoStep(net)
+        validation(val_loader, criterion)
         info(net)
 
-        train_loader, val_loader = data_prepare(traindir = '/home/taoyuan123/imagenet/train', valdir = '/home/taoyuan123/imagenet/val')
-        
-        criterion = nn.CrossEntropyLoss() #.cuda()
-
-        best_prec1, lr = 0., 0.001
+        best_prec1 = 0.
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         # validate(val_loader, net, criterion)
 

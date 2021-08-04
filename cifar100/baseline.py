@@ -62,26 +62,8 @@ def validation(val_loader, criterion):
 
     return val_loss
 
-if __name__ == "__main__":
-
-    batch_size = 100
-
-    train_loader, val_loader = prepare_loader(batch_size)
-
-    net = arch.Net() #.cuda()
-
-    from torchsummary import summary
-    summary(net, input_size=(3, 32, 32))
-
-    import torch.optim as optim
-
-    criterion = nn.CrossEntropyLoss() #.cuda()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-
-    train_loss, val_loss = [], []
-    train_acc, val_acc = [], []
-
-    epoch = 1
+def train(net, criterion, optimizer, train_loader, val_loader, model_path):
+    epoch, train_loss, val_loss = 1, [], []
     while True:
         for i, data in enumerate(train_loader, 0):
             inputs, labels = data
@@ -105,10 +87,24 @@ if __name__ == "__main__":
 
         plot_loss(train_loss, val_loss)
 
-        PATH = 'baseline.pth'
-        torch.save(net.state_dict(), PATH)
+        torch.save(net.state_dict(), model_path)
 
         epoch = epoch + 1
 
-    # plot_loss(train_loss, val_loss)
+if __name__ == "__main__":
 
+    batch_size = 100
+
+    train_loader, val_loader = prepare_loader(batch_size)
+
+    net = arch.Net() #.cuda()
+
+    from torchsummary import summary
+    summary(net, input_size=(3, 32, 32))
+
+    import torch.optim as optim
+
+    criterion = nn.CrossEntropyLoss() #.cuda()
+    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+
+    train(net, criterion, optimizer, train_loader, val_loader, "baseline.pth")
