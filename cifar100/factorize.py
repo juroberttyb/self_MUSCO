@@ -5,9 +5,6 @@ import tensorly.decomposition as td
 import tensorly
 import vbmf
 
-w1 = 0.5 # model/model2 0.7
-w2 = 0.21
-
 class TuckerBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, net, padding = 'same', bias = False):
@@ -16,13 +13,13 @@ class TuckerBlock(nn.Module):
         weight = net.weight.data.numpy()
 
         # chin, chout = self.complete_rank(weight)
-        chin, chout = self.weakened_rank(weight)
+        rank_in, rank_out = self.weakened_rank(weight)
 
-        compress = nn.Conv2d(weight.shape[1], chin, kernel_size = 1, bias = False)
-        core = nn.Conv2d(chin, chout, kernel_size = weight.shape[2], padding = padding, bias = False)
-        restore = nn.Conv2d(chout, weight.shape[0], kernel_size = 1, bias = bias)
+        compress = nn.Conv2d(weight.shape[1], rank_in, kernel_size = 1, bias = False)
+        core = nn.Conv2d(rank_in, rank_out, kernel_size = weight.shape[2], padding = padding, bias = False)
+        restore = nn.Conv2d(rank_out, weight.shape[0], kernel_size = 1, bias = bias)
 
-        c, [t, s] = td.partial_tucker(weight, modes = [0, 1], rank = [chout, chin])
+        c, [t, s] = td.partial_tucker(weight, modes = [0, 1], rank = [rank_out, rank_in])
 
         s = np.transpose(s)
         s = np.reshape(s, (s.shape[0], -1, 1, 1))
@@ -49,24 +46,20 @@ class TuckerBlock(nn.Module):
     def complete_rank(self, weight):
         return weight.shape[1], weight.shape[0]
     
-    def weakened_rank(self, weight):
+    def weakened_rank(self, weight, step_size = 0.):
         extreme_in_rank = vbmf.EVBMF(tensorly.unfold(weight, 1))[1].shape[0]
         extreme_out_rank = vbmf.EVBMF(tensorly.unfold(weight, 0))[1].shape[0]
         
         init_in_rank = weight.shape[1]
         init_out_rank = weight.shape[0]
         
-        weakened_in_rank = init_in_rank - int(w1 * (init_in_rank - extreme_in_rank))
-        weakened_out_rank = init_out_rank - int(w1 * (init_out_rank - extreme_out_rank))
+        weakened_in_rank = init_in_rank - int(step_size * (init_in_rank - extreme_in_rank))
+        weakened_out_rank = init_out_rank - int(step_size * (init_out_rank - extreme_out_rank))
         
         return weakened_in_rank, weakened_out_rank
 
     def forward(self,x):
-        x = self.compress(x)
-        x = self.core(x)
-        x = self.restore(x)
-            
-        return x
+        return self.feature(x)
 
 class OutputTucker(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
@@ -132,8 +125,10 @@ def factorze(net):
     for e in dir(net):
         layer = getattr(net, e)
         if isinstance(layer, nn.Conv2d):
-            if (layer.weight.data.numpy()[1] > 3 # not the first layer
-                and layer.weight.data.numpy()[2] > 1 
-                and layer.weight.data.numpy()[3] > 1):
+            print("get conv2d layer " + e)
+
+            shape = layer.weight.data.numpy().shape
+            if (shape[1] > 3 and shape[2] > 1 and shape[3] > 1):
+                print("this is a 3x3 or more con2d layer")
                 
                 setattr(net, e, TuckerBlock(layer))

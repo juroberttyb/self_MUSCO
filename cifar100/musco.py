@@ -80,16 +80,10 @@ def info(net):
 if __name__ == '__main__':
     net = arch.Net()
     net.load_state_dict(torch.load('baseline.pth'))
-    # info(net)
+    info(net)
 
-    # print(dir(net))
-    print(getattr(net, 'bn2_2'))
-    setattr(net, 'bn2_2', nn.BatchNorm2d(2))
-    print(getattr(net, 'bn2_2'))
-    print(dir(net))
-
-    # for name, param in net.named_parameters():
-    #     print(net[name])
+    fr.factorze(net)
+    info(net)
 
     '''
     net = fr.factorze(net) # .cuda()
