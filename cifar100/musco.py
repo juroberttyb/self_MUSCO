@@ -80,10 +80,18 @@ def info(net):
 if __name__ == '__main__':
     net = arch.Net()
     net.load_state_dict(torch.load('baseline.pth'))
-    info(net)
+    # info(net)
 
     fr.factorze(net)
-    info(net)
+    # print(dir(net))
+    # print(net)
+    # info(net)
+
+    for i in range(3):
+        fr.MuscoStep(net)
+        # print(dir(net))
+        print(net)
+        # info(net)
 
     '''
     net = fr.factorze(net) # .cuda()
