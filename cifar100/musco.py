@@ -60,8 +60,8 @@ if __name__ == '__main__':
     net = arch.Net()
     net.load_state_dict(torch.load('baseline.pth'))
     bl.validation(net, val_loader, criterion)
-    info(net)
-
+    # info(net)
+    '''
     print(type(net.conv1_1.weight))
     print(type(net.conv1_1.weight.data)) # .numpy()
     print(type(net.conv1_1.weight.data.numpy()))
@@ -69,14 +69,13 @@ if __name__ == '__main__':
     print(type(net.conv1_1.bias))
     print(type(net.conv1_1.bias.data)) # .numpy()
     print(type(net.conv1_1.bias.data.numpy()))
-
-    #'''
+    '''
     fr.factorze(net)
     bl.validation(net, val_loader, criterion)
-    info(net)
+    # info(net)
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
-    bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
-
+    # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
+    '''
     step = 2
     for i in range(step):
         fr.MuscoStep(net)
@@ -86,4 +85,4 @@ if __name__ == '__main__':
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
         bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
-    #'''
+    '''
