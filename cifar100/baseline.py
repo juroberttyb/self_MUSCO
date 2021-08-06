@@ -46,7 +46,7 @@ def validation(net, val_loader, criterion):
     with torch.no_grad():
         for data in val_loader:
             images, labels = data
-            images, labels = images, labels
+            images, labels = images.cuda(), labels.cuda()
             # calculate outputs by running images through the network
             outputs = net(images)
             val_loss = val_loss + criterion(outputs, labels)
@@ -67,7 +67,7 @@ def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader
     for ep in range(epoch):
         for i, data in enumerate(train_loader, 0):
             inputs, labels = data
-            inputs, labels = inputs, labels #.cuda()
+            inputs, labels = inputs.cuda(), labels.cuda() #.cuda()
 
             # zero the parameter gradients
             optimizer.zero_grad()

@@ -54,13 +54,13 @@ def info(net):
 if __name__ == '__main__':
     batch_size = 100
     train_loader, val_loader = prepare_loader(batch_size=batch_size)
-    criterion, lr, path = nn.CrossEntropyLoss(), 0.001, "musco.pth" #.cuda()
-    epoch = 5
+    criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
+    epoch = 3
 
     net = arch.Net()
     net.load_state_dict(torch.load('baseline.pth'))
     bl.validation(net, val_loader, criterion)
-    # info(net)
+    info(net)
     '''
     print(type(net.conv1_1.weight))
     print(type(net.conv1_1.weight.data)) # .numpy()
@@ -71,11 +71,12 @@ if __name__ == '__main__':
     print(type(net.conv1_1.bias.data.numpy()))
     '''
     fr.factorze(net)
+    net = net.cuda()
     bl.validation(net, val_loader, criterion)
-    # info(net)
+    info(net)
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
-    # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
-    '''
+    bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
+    
     step = 2
     for i in range(step):
         fr.MuscoStep(net)
@@ -85,4 +86,4 @@ if __name__ == '__main__':
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
         bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
-    '''
+    
