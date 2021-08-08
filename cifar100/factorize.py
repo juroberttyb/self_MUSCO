@@ -61,10 +61,10 @@ class TuckerBlock(nn.Module):
     def forward(self,x):
         return self.feature(x)
 
-class MuscoBlock(nn.Module):
+class MuscoTucker(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, net, padding = 'same', bias = False):
-        super(MuscoBlock, self).__init__()
+        super(MuscoTucker, self).__init__()
 
         block = net.feature
 
@@ -83,23 +83,23 @@ class MuscoBlock(nn.Module):
         c, [t, s] = td.partial_tucker(core_weight, modes = [0, 1], rank = [rankout, rankin])
 
         s = np.transpose(s)
-        print(compress_weight.shape)
+        # print(compress_weight.shape)
         compress_weight = np.reshape(compress_weight, (compress_weight.shape[0], -1))
-        print(compress_weight.shape)
-        print(s.shape)
+        # print(compress_weight.shape)
+        # print(s.shape)
         s = np.matmul(s, compress_weight)
         s = np.reshape(s, (s.shape[0], -1, 1, 1))
         compress.weight.data = torch.from_numpy(s.copy())
         
         core.weight.data = torch.from_numpy(c.copy())
-        print("-----")
+        # print("-----")
         restore_weight = np.reshape(restore_weight, (restore_weight.shape[0], -1))
-        print(restore_weight.shape)
-        print(t.shape)
+        # print(restore_weight.shape)
+        # print(t.shape)
         t = np.matmul(restore_weight, t)
         t = np.reshape(t, (t.shape[0], -1, 1, 1))
-        print(t.shape)
-        print("-----")
+        # print(t.shape)
+        # print("-----")
         restore.weight.data = torch.from_numpy(t.copy())
 
         if bias:
@@ -128,18 +128,20 @@ def factorze(net):
     for e in dir(net):
         layer = getattr(net, e)
         if isinstance(layer, nn.Conv2d):
-            print("get conv2d layer " + e)
+            # print("get conv2d layer " + e)
 
             shape = layer.weight.data.numpy().shape
             if (shape[1] > 3 and shape[2] > 1 and shape[3] > 1):
-                print(e + " is a worthy layer")
+                # print(e + " is a worthy layer")
                 
                 setattr(net, e, TuckerBlock(layer, bias = True))
+    return net
 
 def MuscoStep(net):
     for e in dir(net):
         layer = getattr(net, e)
-        if isinstance(layer, TuckerBlock) or isinstance(layer, MuscoBlock):
-            print("get Block " + e)
+        if isinstance(layer, TuckerBlock) or isinstance(layer, MuscoTucker):
+            # print("get Block " + e)
             
-            setattr(net, e, MuscoBlock(layer, bias = True))
+            setattr(net, e, MuscoTucker(layer, bias = True))
+    return net
