@@ -1,3 +1,4 @@
+from math import fabs
 import numpy as np
 import torch
 import torch.nn as nn
@@ -9,32 +10,39 @@ import vbmf
 
 class SVDBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, net, stride = 1, threshold = 0., bias = False):
+    def __init__(self, net, stride = 1, rank=None):
         super(SVDBlock, self).__init__()
         
         weight = net.weight.data.numpy()
+        
+        try:
+            self.feature = self.SVDfactorize(weight, stride, rank, net.bias.data)
+        except:
+            self.feature = self.SVDfactorize(weight, stride, rank)
 
-        u, v = self.TorchFormSVD(weight, threshold)
+    def SVDfactorize(self, weight, stride, rank, bias=None):
+        u, v = self.TorchFormSVD(weight, rank)
 
         element = nn.Conv2d(u.shape[1], u.shape[0], kernel_size = 1, stride = stride, bias = False)
-        restore = nn.Conv2d(v.shape[1], v.shape[0], kernel_size = 1, bias = bias)
+        if bias == None:
+            restore = nn.Conv2d(v.shape[1], v.shape[0], kernel_size = 1, bias = False)
+        else:
+            restore = nn.Conv2d(v.shape[1], v.shape[0], kernel_size = 1, bias = True)
+            restore.bias.data = bias
 
         element.weight.data = torch.from_numpy(u.copy())
         restore.weight.data = torch.from_numpy(v.copy())
 
-        if bias:
-            restore.bias.data = net.bias.data
-
-        self.feature = nn.Sequential(element, restore)
+        return nn.Sequential(element, restore)
 
     # filters: weights of 1x1 conv layer
-    def TorchFormSVD(self, filters, threshold, with_s=False):
+    def TorchFormSVD(self, filters, rank, with_s=False):
         filters = np.transpose(filters.reshape((filters.shape[0], -1)))
 
         if with_s:
-            u, s, v = self.SVD(filters, with_s=with_s, threshold=threshold)
+            u, s, v = self.SVD(filters, with_s=with_s, threshold=rank)
         else:
-            u, v = self.SVD(filters, with_s=with_s, threshold=threshold)
+            u, v = self.SVD(filters, with_s=with_s, threshold=rank)
         
         u = u.transpose()
         u = u.reshape((*u.shape, 1, 1))
@@ -49,18 +57,21 @@ class SVDBlock(nn.Module):
         return u, v
 
     # weight: numpy array of shape chin * chout
-    def SVD(self, weight, with_s, threshold):
+    def SVD(self, weight, with_s, rank=None):
         u, s, v = np.linalg.svd(weight, full_matrices=False)
         # full_matrices=False -> the shapes are (..., M, K) and (..., K, N), respectively, where K = min(M, N)
 
-        for i in range(s.shape[0]):
-            if s[i] < threshold:
-                s = s[:i]
-                break
-        
-        u = u[:, :s.shape[0]]
-        
-        v = v[:s.shape[0], :]
+        if rank != None:
+            '''
+            for i in range(s.shape[0]):
+                if s[i] < threshold:
+                    s = s[:i]
+                    break
+            '''
+
+            s = s[:rank]
+            u = u[:, :rank] # u[:, :s.shape[0]]
+            v = v[:rank, :] # v[:s.shape[0], :]
         
         if with_s:
             return u, s, v
@@ -83,12 +94,18 @@ class MuscoSVD(nn.Module):
     def __init__(self, net, reduction_rate, stride=1, bias=False):
         super(MuscoSVD, self).__init__()
 
-        element_weight = net.feature[0].weight.data.numpy()
-        restore_weight = net.feature[1].weight.data.numpy()
+        element = net.feature[0].weight.data.numpy()
+        restore = net.feature[1].weight.data.numpy()
 
-        rank = ...
+        rank = min([element.shape[0], element.shape[1], restore.shape[0], restore.shape[1]])
+        rank = int(rank * (1. - reduction_rate))
 
-        filters = self.TorchReform(element_weight, restore_weight)
+        weight = self.TorchReform(element, restore)
+
+        try:
+            self.feature = SVDBlock.SVDfactorize(weight, stride, rank, net.bias.data)
+        except:
+            self.feature = SVDBlock.SVDfactorize(weight, stride, rank)
 
     def TorchReform(self, u, v):
 
