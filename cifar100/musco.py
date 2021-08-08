@@ -56,7 +56,7 @@ if __name__ == '__main__':
     batch_size = 100
     train_loader, val_loader = prepare_loader(batch_size=batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
-    epoch = 20
+    epoch = 100
 
     net = arch.Net()
     net.load_state_dict(torch.load('baseline.pth'))

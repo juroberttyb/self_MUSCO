@@ -5,6 +5,129 @@ import tensorly.decomposition as td
 import tensorly
 import vbmf
 
+class SVDBlock(nn.Module):
+    ''' conv_weight, conv_bias: numpy '''
+    def __init__(self, weight, stride = 1, threshold = 0.):
+        super(SVDBlock, self).__init__()
+
+        u, s, v = self.ToTorchForm(weight)
+
+        element = nn.utils.weight_norm(nn.Conv2d(u.shape[1], u.shape[0], kernel_size = 1, stride = stride, bias = False))
+        restore = nn.utils.weight_norm(nn.Conv2d(v.shape[1], v.shape[0], kernel_size = 1, bias = False))
+
+        element.weight_v.data = torch.from_numpy(u.copy())
+        element.weight_g.data = torch.from_numpy(s.copy())
+
+        restore.weight_v.data = torch.from_numpy(v.copy())
+        restore.weight_g.data = torch.from_numpy(np.array([np.linalg.norm(v[i]) for i in range(v.shape[0])])) # .copy()
+
+        self.feature = nn.Sequential(element, restore)
+
+    # filters: weights of 1x1 conv layer
+    def ToTorchForm(self, filters):
+        filters = np.transpose(filters.reshape((filters.shape[0], -1)))
+
+        u, s, v = self.SVD(filters)
+        
+        u = u.transpose()
+        u = u.reshape((*u.shape, 1, 1))
+        
+        v = v.transpose()
+        v = v.reshape((*v.shape, 1, 1))
+
+        # s = np.sqrt(s)
+        s = s.reshape(s.shape[0], 1, 1, 1)
+
+        return u, s, v
+
+    # weight: numpy array of shape chin * chout
+    def SVD(self, weight, threshold = 0.):
+        u, s, v = np.linalg.svd(weight)
+
+        for i in range(s.shape[0]):
+            if s[i] < threshold:
+                s = s[:i]
+                break
+        
+        u = u[:, :s.shape[0]]
+        
+        v = v[:s.shape[0], :]
+
+        '''
+        s = np.sqrt(s)
+
+        for i in range(s.shape[0]):
+            u[:, i] = u[:, i] * s[i]
+
+        for i in range(s.shape[0]):
+            v[i, :] = v[i, :] * s[i]
+        '''
+        
+        return u, s, v
+
+    def forward(self, x):    
+        return self.feature(x)
+
+class MuscoSVD(nn.Module):
+    ''' conv_weight, conv_bias: numpy '''
+    def __init__(self, net, stride = 1):
+        super(MuscoSVD, self).__init__()
+
+        cin = gating(net.element.weight_g.data.numpy())
+        input_dim, rank, output_dim = net.element.weight_v.data.numpy().shape[1], len(cin), net.restore.weight.data.numpy().shape[0]
+
+        if self.faster_check(input_dim, rank, output_dim):
+            element = nn.Conv2d(input_dim, rank, kernel_size = 1, stride = stride, bias = False)
+            restore = nn.Conv2d(rank, output_dim, kernel_size = 1, bias = False)
+
+            weight, gate = net.element.weight_v.data.numpy(), net.element.weight_g.data.numpy()
+            weight, gate = weight[cin, :, :, :], gate[cin]
+            weight = np.array([weight[i] / np.linalg.norm(weight[i]) * gate[i] for i in range(weight.shape[0])])
+
+            element.weight.data = torch.from_numpy(weight.copy())
+
+            weight, gate = net.restore.weight_v.data.numpy(), net.restore.weight_g.data.numpy()
+            weight = np.array([weight[i] / np.linalg.norm(weight[i]) * gate[i] for i in range(weight.shape[0])])
+            weight = weight[:, cin, :, :]
+            restore.weight.data = torch.from_numpy(weight.copy())
+
+            layers = [element, restore]
+        else:
+            conv = nn.Conv2d(input_dim, output_dim, kernel_size = 1, stride = stride, bias = False)
+
+            u, gate = net.element.weight_v.data.numpy(), net.element.weight_g.data.numpy()
+            u = np.array([u[i] / np.linalg.norm(u[i]) * gate[i] for i in range(u.shape[0])])
+
+            v, gate = net.restore.weight_v.data.numpy(), net.restore.weight_g.data.numpy()
+            v = np.array([v[i] / np.linalg.norm(v[i]) * gate[i] for i in range(v.shape[0])])
+
+            # v = net.restore.weight.data.numpy()
+
+            weight = self.recover(u, v)
+
+            conv.weight.data = torch.from_numpy(weight.copy())
+
+            layers = [conv]
+
+        self.feature = nn.Sequential(*layers)
+
+    def faster_check(self, m, k, n):
+        if m * k + k * n < m * n:
+            return True
+        return False
+
+    def recover(self, u, v):
+        u, v = u.reshape((u.shape[0], -1)).transpose(), v.reshape((v.shape[0], -1)).transpose()
+        weight = np.matmul(u, v)
+        weight = weight.transpose().reshape((weight.shape[1], -1, 1, 1))
+
+        return weight
+
+    def forward(self, x):
+        x = self.feature(x)
+            
+        return x
+
 class TuckerBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, net, padding = 'same', bias = False):
