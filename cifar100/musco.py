@@ -64,7 +64,7 @@ if __name__ == '__main__':
     bl.validation(net, val_loader, criterion)
     summary(net, input_size=(3, 32, 32))
 
-    net = fr.factorze(net.cpu()).cuda()
+    net = fr.TuckerFactorze(net.cpu()).cuda()
     bl.validation(net, val_loader, criterion)
     summary(net, input_size=(3, 32, 32))
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     
     step = 5
     for i in range(step):
-        net = fr.MuscoStep(net.cpu()).cuda()
+        net = fr.TuckerMuscoStep(net.cpu()).cuda()
         bl.validation(net, val_loader, criterion)
         summary(net, input_size=(3, 32, 32))
 

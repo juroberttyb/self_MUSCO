@@ -5,6 +5,8 @@ import tensorly.decomposition as td
 import tensorly
 import vbmf
 
+# 待修改MuscoSVD, CPBlock
+
 class SVDBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, net, stride = 1, threshold = 0., bias = False):
@@ -24,21 +26,6 @@ class SVDBlock(nn.Module):
             restore.bias.data = net.bias.data
 
         self.feature = nn.Sequential(element, restore)
-
-        '''
-        u, s, v = self.ToTorchForm(weight, with_s=True)
-
-        element = nn.utils.weight_norm(nn.Conv2d(u.shape[1], u.shape[0], kernel_size = 1, stride = stride, bias = False))
-        restore = nn.utils.weight_norm(nn.Conv2d(v.shape[1], v.shape[0], kernel_size = 1, bias = False))
-
-        element.weight_v.data = torch.from_numpy(u.copy())
-        element.weight_g.data = torch.from_numpy(s.copy())
-
-        restore.weight_v.data = torch.from_numpy(v.copy())
-        restore.weight_g.data = torch.from_numpy(np.array([np.linalg.norm(v[i]) for i in range(v.shape[0])])) # .copy()
-
-        self.feature = nn.Sequential(element, restore)
-        '''
 
     # filters: weights of 1x1 conv layer
     def TorchFormSVD(self, filters, threshold, with_s=False):
@@ -93,63 +80,32 @@ class SVDBlock(nn.Module):
 
 class MuscoSVD(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, net, stride = 1):
+    def __init__(self, net, reduction_rate, stride=1, bias=False):
         super(MuscoSVD, self).__init__()
 
-        cin = gating(net.element.weight_g.data.numpy())
-        input_dim, rank, output_dim = net.element.weight_v.data.numpy().shape[1], len(cin), net.restore.weight.data.numpy().shape[0]
+        element_weight = net.feature[0].weight.data.numpy()
+        restore_weight = net.feature[1].weight.data.numpy()
 
-        if self.faster_check(input_dim, rank, output_dim):
-            element = nn.Conv2d(input_dim, rank, kernel_size = 1, stride = stride, bias = False)
-            restore = nn.Conv2d(rank, output_dim, kernel_size = 1, bias = False)
+        rank = ...
 
-            weight, gate = net.element.weight_v.data.numpy(), net.element.weight_g.data.numpy()
-            weight, gate = weight[cin, :, :, :], gate[cin]
-            weight = np.array([weight[i] / np.linalg.norm(weight[i]) * gate[i] for i in range(weight.shape[0])])
+        filters = self.TorchReform(element_weight, restore_weight)
 
-            element.weight.data = torch.from_numpy(weight.copy())
+    def TorchReform(self, u, v):
 
-            weight, gate = net.restore.weight_v.data.numpy(), net.restore.weight_g.data.numpy()
-            weight = np.array([weight[i] / np.linalg.norm(weight[i]) * gate[i] for i in range(weight.shape[0])])
-            weight = weight[:, cin, :, :]
-            restore.weight.data = torch.from_numpy(weight.copy())
+        u = u.reshape((u.shape[0], -1))
+        u = u.transpose()
+        
+        v = v.reshape((v.shape[0], -1))
+        v = v.transpose()
 
-            layers = [element, restore]
-        else:
-            conv = nn.Conv2d(input_dim, output_dim, kernel_size = 1, stride = stride, bias = False)
+        filters = np.matmul(u, v)
+        filters = filters.transpose()
+        filters = filters.reshape((*filters.shape, 1, 1))
 
-            u, gate = net.element.weight_v.data.numpy(), net.element.weight_g.data.numpy()
-            u = np.array([u[i] / np.linalg.norm(u[i]) * gate[i] for i in range(u.shape[0])])
-
-            v, gate = net.restore.weight_v.data.numpy(), net.restore.weight_g.data.numpy()
-            v = np.array([v[i] / np.linalg.norm(v[i]) * gate[i] for i in range(v.shape[0])])
-
-            # v = net.restore.weight.data.numpy()
-
-            weight = self.recover(u, v)
-
-            conv.weight.data = torch.from_numpy(weight.copy())
-
-            layers = [conv]
-
-        self.feature = nn.Sequential(*layers)
-
-    def faster_check(self, m, k, n):
-        if m * k + k * n < m * n:
-            return True
-        return False
-
-    def recover(self, u, v):
-        u, v = u.reshape((u.shape[0], -1)).transpose(), v.reshape((v.shape[0], -1)).transpose()
-        weight = np.matmul(u, v)
-        weight = weight.transpose().reshape((weight.shape[1], -1, 1, 1))
-
-        return weight
+        return filters
 
     def forward(self, x):
-        x = self.feature(x)
-            
-        return x
+        return self.feature(x)
 
 class TuckerBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
@@ -212,11 +168,9 @@ class MuscoTucker(nn.Module):
     def __init__(self, net, reduction_rate, padding = 'same', bias = False):
         super(MuscoTucker, self).__init__()
 
-        block = net.feature
-
-        compress_weight = block[0].weight.data.numpy()
-        core_weight = block[1].weight.data.numpy()
-        restore_weight = block[2].weight.data.numpy()
+        compress_weight = net.feature[0].weight.data.numpy()
+        core_weight = net.feature[1].weight.data.numpy()
+        restore_weight = net.feature[2].weight.data.numpy()
         
         rankin, rankout = self.weakened_rank(core_weight, reduction_rate)
         kernel_size = core_weight.shape[2]
@@ -270,7 +224,53 @@ class MuscoTucker(nn.Module):
     def forward(self,x):
         return self.feature(x)
 
-def factorze(net):
+class CPBlock(nn.Module):
+    ''' conv_weight, conv_bias: numpy '''
+    def __init__(self, weight, stride = 1, padding = 1, groups = 1, dilation = 1):
+        super(CPBlock, self).__init__()
+
+        kernel_size = weight.shape[2]
+        # weight = np.reshape(weight, (weight.shape[0], weight.shape[1], kernel_size * kernel_size))
+
+        cin, cout = weight.shape[1], weight.shape[0]
+        r = self.approx_rank(weight)
+        
+        self.compress = nn.Conv2d(cin, r, kernel_size = 1, stride = stride, bias = False)
+        self.right = nn.Conv2d(r, r, kernel_size = (kernel_size, 1), padding = (padding, 0), groups = r, bias = False)
+        self.down = nn.Conv2d(r, r, kernel_size = (1, kernel_size), padding = (0, padding), groups = r, bias = False)
+        self.restore = nn.Conv2d(r, cout, kernel_size = 1, bias = False)
+
+        # normalize_factors = False, so that scalar return is all one
+        scalar, [_out, _in, kernel1, kernel2] = td.parafac(weight, r, n_iter_max = 100, normalize_factors = True)
+
+        _in = np.transpose(_in)
+        _in = np.array([_in[i] * scalar[i] for i in range(r)])
+        _in = np.reshape(_in, (r, -1, 1, 1))
+        self.compress.weight.data = torch.from_numpy(_in.copy())
+
+        kernel1 = np.transpose(kernel1)
+        kernel1 = np.reshape(kernel1, (-1, 1, kernel_size, 1))
+        self.right.weight.data = torch.from_numpy(kernel1.copy())
+
+        kernel2 = np.transpose(kernel2)
+        kernel2 = np.reshape(kernel2, (-1, 1, 1, kernel_size))
+        self.down.weight.data = torch.from_numpy(kernel2.copy())
+
+        _out = np.reshape(_out, (-1, r, 1, 1))
+        self.restore.weight.data = torch.from_numpy(_out.copy())
+
+    def approx_rank(self, weight):
+        return 48 # weight.shape[0] * weight.shape[2] # * weight.shape[1] # * weight.shape[3]
+        
+    def forward(self,x):
+        x = self.compress(x)
+        x = self.right(x)
+        x = self.down(x)
+        x = self.restore(x)
+            
+        return x
+
+def TuckerFactorze(net):
     for e in dir(net):
         layer = getattr(net, e)
         if isinstance(layer, nn.Conv2d):
@@ -283,7 +283,7 @@ def factorze(net):
                 setattr(net, e, TuckerBlock(layer, bias = True))
     return net
 
-def MuscoStep(net, reduction_rate = 0.2):
+def TuckerMuscoStep(net, reduction_rate = 0.2):
     for e in dir(net):
         layer = getattr(net, e)
         if isinstance(layer, TuckerBlock) or isinstance(layer, MuscoTucker):
