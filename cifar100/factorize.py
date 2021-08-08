@@ -137,7 +137,7 @@ def factorze(net):
                 setattr(net, e, TuckerBlock(layer, bias = True))
     return net
 
-def MuscoStep(net, reduction_rate = 0.125):
+def MuscoStep(net, reduction_rate = 0.1):
     for e in dir(net):
         layer = getattr(net, e)
         if isinstance(layer, TuckerBlock) or isinstance(layer, MuscoTucker):

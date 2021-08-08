@@ -78,7 +78,7 @@ def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader
             loss.backward()
             optimizer.step()
 
-            if i % 100 == 0:
+            if i % 300 == 0:
                 print('[%d %d] loss: %.3f' %
                     (k, i, loss.item()))
         
