@@ -55,16 +55,16 @@ def validation(net, val_loader, criterion):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-    print('Accuracy of the network on the 10000 test images: %d %%' % (
+    print('Accuracy of the network on the 10000 test images: %.2f %%' % (
         100 * correct / total))
 
-    val_loss = val_loss / 10000
+    val_loss = val_loss / 10000.
 
     return val_loss
 
 def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, model_path):
     train_loss, val_loss = [], []
-    for ep in range(epoch):
+    for k in range(epoch):
         for i, data in enumerate(train_loader, 0):
             inputs, labels = data
             inputs, labels = inputs.cuda(), labels.cuda() #.cuda()
@@ -80,10 +80,10 @@ def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader
 
             if i % 100 == 0:
                 print('[%d %d] loss: %.3f' %
-                    (epoch, i, loss.item()))
+                    (k, i, loss.item()))
         
         train_loss.append(loss.item() / batch_size)
-        val_loss.append(validation(net, val_loader, criterion))
+        val_loss.append(validation(net, val_loader, criterion).cpu())
 
         plot_loss(train_loss, val_loss)
 
@@ -96,9 +96,6 @@ if __name__ == "__main__":
     train_loader, val_loader = prepare_loader(batch_size)
 
     net = arch.Net() #.cuda()
-
-    from torchsummary import summary
-    summary(net, input_size=(3, 32, 32))
 
     import torch.optim as optim
 

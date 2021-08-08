@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from ptflops import get_model_complexity_info
 import factorize as fr
 import baseline as bl
+from torchsummary import summary
 
 def prepare_loader(batch_size):
     train_transform = transforms.Compose(
@@ -55,27 +56,27 @@ if __name__ == '__main__':
     batch_size = 100
     train_loader, val_loader = prepare_loader(batch_size=batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
-    epoch = 3
+    epoch = 10
 
     net = arch.Net()
     net.load_state_dict(torch.load('baseline.pth'))
     net = net.cuda()
     bl.validation(net, val_loader, criterion)
-    info(net)
+    summary(net, input_size=(3, 32, 32))
 
     net = fr.factorze(net.cpu()).cuda()
     bl.validation(net, val_loader, criterion)
-    info(net)
+    summary(net, input_size=(3, 32, 32))
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
-    # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
+    bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
     
     step = 2
     for i in range(step):
         net = fr.MuscoStep(net.cpu()).cuda()
         bl.validation(net, val_loader, criterion)
-        info(net)
+        summary(net, input_size=(3, 32, 32))
 
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
-        # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
+        bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
     
