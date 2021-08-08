@@ -7,10 +7,26 @@ import vbmf
 
 class SVDBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, weight, stride = 1, threshold = 0.):
+    def __init__(self, net, stride = 1, threshold = 0., bias = False):
         super(SVDBlock, self).__init__()
+        
+        weight = net.weight.data.numpy()
 
-        u, s, v = self.ToTorchForm(weight)
+        u, v = self.TorchFormSVD(weight, threshold)
+
+        element = nn.Conv2d(u.shape[1], u.shape[0], kernel_size = 1, stride = stride, bias = False)
+        restore = nn.Conv2d(v.shape[1], v.shape[0], kernel_size = 1, bias = bias)
+
+        element.weight.data = torch.from_numpy(u.copy())
+        restore.weight.data = torch.from_numpy(v.copy())
+
+        if bias:
+            restore.bias.data = net.bias.data
+
+        self.feature = nn.Sequential(element, restore)
+
+        '''
+        u, s, v = self.ToTorchForm(weight, with_s=True)
 
         element = nn.utils.weight_norm(nn.Conv2d(u.shape[1], u.shape[0], kernel_size = 1, stride = stride, bias = False))
         restore = nn.utils.weight_norm(nn.Conv2d(v.shape[1], v.shape[0], kernel_size = 1, bias = False))
@@ -22,12 +38,16 @@ class SVDBlock(nn.Module):
         restore.weight_g.data = torch.from_numpy(np.array([np.linalg.norm(v[i]) for i in range(v.shape[0])])) # .copy()
 
         self.feature = nn.Sequential(element, restore)
+        '''
 
     # filters: weights of 1x1 conv layer
-    def ToTorchForm(self, filters):
+    def TorchFormSVD(self, filters, threshold, with_s=False):
         filters = np.transpose(filters.reshape((filters.shape[0], -1)))
 
-        u, s, v = self.SVD(filters)
+        if with_s:
+            u, s, v = self.SVD(filters, with_s=with_s, threshold=threshold)
+        else:
+            u, v = self.SVD(filters, with_s=with_s, threshold=threshold)
         
         u = u.transpose()
         u = u.reshape((*u.shape, 1, 1))
@@ -36,13 +56,15 @@ class SVDBlock(nn.Module):
         v = v.reshape((*v.shape, 1, 1))
 
         # s = np.sqrt(s)
-        s = s.reshape(s.shape[0], 1, 1, 1)
-
-        return u, s, v
+        if with_s:
+            s = s.reshape(s.shape[0], 1, 1, 1)
+            return u, s, v
+        return u, v
 
     # weight: numpy array of shape chin * chout
-    def SVD(self, weight, threshold = 0.):
-        u, s, v = np.linalg.svd(weight)
+    def SVD(self, weight, with_s, threshold):
+        u, s, v = np.linalg.svd(weight, full_matrices=False)
+        # full_matrices=False -> the shapes are (..., M, K) and (..., K, N), respectively, where K = min(M, N)
 
         for i in range(s.shape[0]):
             if s[i] < threshold:
@@ -52,8 +74,10 @@ class SVDBlock(nn.Module):
         u = u[:, :s.shape[0]]
         
         v = v[:s.shape[0], :]
+        
+        if with_s:
+            return u, s, v
 
-        '''
         s = np.sqrt(s)
 
         for i in range(s.shape[0]):
@@ -61,9 +85,8 @@ class SVDBlock(nn.Module):
 
         for i in range(s.shape[0]):
             v[i, :] = v[i, :] * s[i]
-        '''
         
-        return u, s, v
+        return u, v
 
     def forward(self, x):    
         return self.feature(x)
