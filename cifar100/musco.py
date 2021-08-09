@@ -72,7 +72,7 @@ if __name__ == '__main__':
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
 
     net = res.resnet50() # arch.Net() # res18.resnet18()
-    # net.load_state_dict(torch.load('baseline.pth'))
+    net.load_state_dict(torch.load('baseline.pth', map_location='cpu'))
     net = net.cuda()
     # summary(net, input_size=(3, 32, 32))
     print(net)
