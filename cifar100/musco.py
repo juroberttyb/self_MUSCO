@@ -89,9 +89,9 @@ if __name__ == '__main__':
     # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
 
     # '''
-    step = 2
+    step = 3
     for i in range(step):
-        net = resnet_MuscoStep(net.cpu(), reduction_rate=0.).cuda()
+        net = resnet_MuscoStep(net.cpu(), reduction_rate=0.1).cuda()
         # summary(net, input_size=(3, 32, 32))
         # print(net)
         bl.validation(net, val_loader, criterion)

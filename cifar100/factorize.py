@@ -1,4 +1,5 @@
 from math import fabs
+from os import stat
 import numpy as np
 import torch
 import torch.nn as nn
@@ -148,7 +149,7 @@ class TuckerBlock(nn.Module):
         super(TuckerBlock, self).__init__()
 
         weight = layer.weight.data.numpy()
-        rank_in, rank_out = self.rank_select(weight, rank_mode)
+        rank_in, rank_out = TuckerBlock.rank_select(weight, rank_mode)
 
         compress = nn.Conv2d(layer.in_channels, rank_in, kernel_size = 1, bias = False)
         core = nn.Conv2d(rank_in, rank_out, kernel_size = layer.kernel_size, 
@@ -173,7 +174,8 @@ class TuckerBlock(nn.Module):
 
         self.feature = nn.Sequential(compress, core, restore)
 
-    def rank_select(self, weight, rank_mode):
+    @staticmethod
+    def rank_select(weight, rank_mode):
         if rank_mode == 'exact':
             return TuckerBlock.exact_rank(weight)
         elif rank_mode == 'complete':
@@ -260,7 +262,7 @@ class MuscoTucker(nn.Module):
         weakened_out_rank = init_out_rank - int(reduction_rate * (init_out_rank - extreme_out_rank))
         '''
 
-        init_in_rank, init_out_rank = TuckerBlock.exact_rank(weight)
+        init_in_rank, init_out_rank = TuckerBlock.rank_select(weight, 'exact')
 
         weakened_in_rank = int(init_in_rank * (1. - reduction_rate))
         weakened_out_rank = int(init_out_rank - (1. - reduction_rate))
