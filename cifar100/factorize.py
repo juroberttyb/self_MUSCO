@@ -56,7 +56,7 @@ class SVDBlock(nn.Module):
     def SVD(weight, with_s, rank=None):
         u, s, v = np.linalg.svd(weight, full_matrices=False)
         # full_matrices=False -> the shapes are (..., M, K) and (..., K, N), respectively, where K = min(M, N)
-
+        
         if rank != None:
             s = s[:rank]
 

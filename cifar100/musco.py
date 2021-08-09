@@ -36,10 +36,10 @@ def resnet_factorize(net):
 
                         if isinstance(layer, nn.Conv2d):
                             if (layer.in_channels > 3 and layer.kernel_size != (1,1)):
-                                # print("decomposing " + str(layer))
+                                # print("tucker decomposing " + str(layer))
                                 setattr(block, e2, fr.TuckerBlock(layer))
                             elif (layer.kernel_size == (1,1)):
-                                # print("svd called")
+                                # print("svd decomposing " + str(layer))
                                 setattr(block, e2, fr.SVDBlock(layer))
                             else:
                                 print("nothing matched")
