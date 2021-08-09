@@ -40,9 +40,9 @@ class SVDBlock(nn.Module):
         filters = np.transpose(filters.reshape((filters.shape[0], -1)))
 
         if with_s:
-            u, s, v = self.SVD(filters, with_s=with_s, threshold=rank)
+            u, s, v = self.SVD(filters, with_s=with_s, rank=rank)
         else:
-            u, v = self.SVD(filters, with_s=with_s, threshold=rank)
+            u, v = self.SVD(filters, with_s=with_s, rank=rank)
         
         u = u.transpose()
         u = u.reshape((*u.shape, 1, 1))
@@ -62,16 +62,15 @@ class SVDBlock(nn.Module):
         # full_matrices=False -> the shapes are (..., M, K) and (..., K, N), respectively, where K = min(M, N)
 
         if rank != None:
-            '''
-            for i in range(s.shape[0]):
-                if s[i] < threshold:
-                    s = s[:i]
-                    break
-            '''
-
             s = s[:rank]
-            u = u[:, :rank] # u[:, :s.shape[0]]
-            v = v[:rank, :] # v[:s.shape[0], :]
+
+        for i in range(s.shape[0]): # clear singular values == 0
+            if s[i] <= 0.:
+                s = s[:i]
+                break
+
+        u = u[:, :s.shape[0]]
+        v = v[:s.shape[0], :]
         
         if with_s:
             return u, s, v
@@ -97,17 +96,18 @@ class MuscoSVD(nn.Module):
         element = net.feature[0].weight.data.numpy()
         restore = net.feature[1].weight.data.numpy()
 
-        rank = min([element.shape[0], element.shape[1], restore.shape[0], restore.shape[1]])
-        rank = int(rank * (1. - reduction_rate))
+        weight = self.Reform(element, restore)
+        rank = self.weakened_rank(self, weight, reduction_rate)
 
-        weight = self.TorchReform(element, restore)
+        weight = weight.transpose()
+        weight = weight.reshape((*weight.shape, 1, 1))
 
         try:
             self.feature = SVDBlock.SVDfactorize(weight, stride, rank, net.bias.data)
         except:
             self.feature = SVDBlock.SVDfactorize(weight, stride, rank)
 
-    def TorchReform(self, u, v):
+    def Reform(self, u, v):
 
         u = u.reshape((u.shape[0], -1))
         u = u.transpose()
@@ -115,24 +115,28 @@ class MuscoSVD(nn.Module):
         v = v.reshape((v.shape[0], -1))
         v = v.transpose()
 
-        filters = np.matmul(u, v)
-        filters = filters.transpose()
-        filters = filters.reshape((*filters.shape, 1, 1))
+        return np.matmul(u, v)
 
-        return filters
+    def weakened_rank(self, weight, reduction_rate):
+        extreme_rank = vbmf.EVBMF(tensorly.unfold(weight, 1))[1].shape[0]
+        
+        init_rank = np.linalg.matrix_rank(weight, tol = None)
+        
+        weakened_rank = init_rank - int(reduction_rate * (init_rank - extreme_rank))
+        
+        return weakened_rank
 
     def forward(self, x):
         return self.feature(x)
 
 class TuckerBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, net, padding = 'same', bias = False):
+    def __init__(self, net, rank_mode = 'exact', padding = 'same', bias = False):
         super(TuckerBlock, self).__init__()
 
         weight = net.weight.data.numpy()
 
-        rank_in, rank_out = self.complete_rank(weight)
-        # rank_in, rank_out = self.weakened_rank(weight)
+        rank_in, rank_out = self.rank_select(weight, rank_mode)
 
         compress = nn.Conv2d(weight.shape[1], rank_in, kernel_size = 1, bias = False)
         core = nn.Conv2d(rank_in, rank_out, kernel_size = weight.shape[2], padding = padding, bias = False)
@@ -154,28 +158,31 @@ class TuckerBlock(nn.Module):
 
         self.feature = nn.Sequential(compress, core, restore)
 
-    def exact_rank(self, tensor, tol = None):
-        in_rank = int(0.5 * np.linalg.matrix_rank(tensorly.unfold(tensor, 1), tol = tol))
-        out_rank = int(0.5 * np.linalg.matrix_rank(tensorly.unfold(tensor, 0), tol = tol))
-        # in_rank = vbmf.EVBMF(tensorly.unfold(tensor, 1))[1].shape[0]
-        # out_rank = vbmf.EVBMF(tensorly.unfold(tensor, 0))[1].shape[0]
+    def rank_select(self, weight, rank_mode):
+        if rank_mode == 'exact':
+            return TuckerBlock.exact_rank(weight)
+        elif rank_mode == 'complete':
+            return TuckerBlock.complete_rank(weight)
+        else:
+            return TuckerBlock.lower_rank(weight)
+
+    @staticmethod
+    def exact_rank(tensor, tol = None):
+        in_rank = np.linalg.matrix_rank(tensorly.unfold(tensor, 1), tol = tol)
+        out_rank = np.linalg.matrix_rank(tensorly.unfold(tensor, 0), tol = tol)
         
         return in_rank, out_rank
-
-    def complete_rank(self, weight):
+    
+    @staticmethod
+    def complete_rank(weight):
         return weight.shape[1], weight.shape[0]
     
-    def weakened_rank(self, weight, step_size = 0.):
+    @staticmethod
+    def lower_rank(weight):
         extreme_in_rank = vbmf.EVBMF(tensorly.unfold(weight, 1))[1].shape[0]
         extreme_out_rank = vbmf.EVBMF(tensorly.unfold(weight, 0))[1].shape[0]
-        
-        init_in_rank = weight.shape[1]
-        init_out_rank = weight.shape[0]
-        
-        weakened_in_rank = init_in_rank - int(step_size * (init_in_rank - extreme_in_rank))
-        weakened_out_rank = init_out_rank - int(step_size * (init_out_rank - extreme_out_rank))
-        
-        return weakened_in_rank, weakened_out_rank
+
+        return extreme_in_rank, extreme_out_rank
 
     def forward(self,x):
         return self.feature(x)
@@ -229,9 +236,11 @@ class MuscoTucker(nn.Module):
     def weakened_rank(self, weight, reduction_rate):
         extreme_in_rank = vbmf.EVBMF(tensorly.unfold(weight, 1))[1].shape[0]
         extreme_out_rank = vbmf.EVBMF(tensorly.unfold(weight, 0))[1].shape[0]
-        
-        init_in_rank = weight.shape[1]
-        init_out_rank = weight.shape[0]
+
+        init_in_rank, init_out_rank = TuckerBlock.exact_rank(weight)
+
+        # init_in_rank = weight.shape[1]
+        # init_out_rank = weight.shape[0]
         
         weakened_in_rank = init_in_rank - int(reduction_rate * (init_in_rank - extreme_in_rank))
         weakened_out_rank = init_out_rank - int(reduction_rate * (init_out_rank - extreme_out_rank))
@@ -295,16 +304,16 @@ def TuckerFactorze(net):
 
             shape = layer.weight.data.numpy().shape
             if (shape[1] > 3 and shape[2] > 1 and shape[3] > 1):
-                # print(e + " is a worthy layer")
+                print("Block " + e + " catched")
                 
                 setattr(net, e, TuckerBlock(layer, bias = True))
     return net
 
-def TuckerMuscoStep(net, reduction_rate = 0.2):
+def TuckerMuscoStep(net, reduction_rate):
     for e in dir(net):
         layer = getattr(net, e)
         if isinstance(layer, TuckerBlock) or isinstance(layer, MuscoTucker):
-            # print("get Block " + e)
+            print("Block " + e + " catched")
             
             setattr(net, e, MuscoTucker(layer, reduction_rate = reduction_rate, bias = True))
     return net

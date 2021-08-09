@@ -52,31 +52,33 @@ def info(net):
     print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
     print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
+import res18_arch as res18
+
 if __name__ == '__main__':
     batch_size = 100
     train_loader, val_loader = prepare_loader(batch_size=batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
     epoch = 100
 
-    net = arch.Net()
+    net = arch.Net() # res18.resnet18()
     net.load_state_dict(torch.load('baseline.pth'))
     net = net.cuda()
     bl.validation(net, val_loader, criterion)
-    summary(net, input_size=(3, 32, 32))
+    # summary(net, input_size=(3, 32, 32))
 
     net = fr.TuckerFactorze(net.cpu()).cuda()
     bl.validation(net, val_loader, criterion)
-    summary(net, input_size=(3, 32, 32))
+    # summary(net, input_size=(3, 32, 32))
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
     # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
-    
-    step = 5
+    # '''
+    step = 2
     for i in range(step):
-        net = fr.TuckerMuscoStep(net.cpu()).cuda()
+        net = fr.TuckerMuscoStep(net.cpu(), reduction_rate=0.2).cuda()
         bl.validation(net, val_loader, criterion)
         summary(net, input_size=(3, 32, 32))
 
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
-        bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
-    
+        # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)  
+    # '''
