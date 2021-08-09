@@ -111,11 +111,15 @@ class MuscoSVD(nn.Module):
         return np.matmul(u, v)
 
     def weakened_rank(self, weight, reduction_rate):
+        '''
         extreme_rank = vbmf.EVBMF(tensorly.unfold(weight, 1))[1].shape[0]
         
         init_rank = np.linalg.matrix_rank(weight, tol = None)
         
         weakened_rank = init_rank - int(reduction_rate * (init_rank - extreme_rank))
+        '''
+
+        weakened_rank = int(np.linalg.matrix_rank(weight, tol = None) * (1. - reduction_rate))
         
         return weakened_rank
 
@@ -230,6 +234,7 @@ class MuscoTucker(nn.Module):
         self.feature = nn.Sequential(*layers)
 
     def weakened_rank(self, weight, reduction_rate):
+        '''
         extreme_in_rank = vbmf.EVBMF(tensorly.unfold(weight, 1))[1].shape[0]
         extreme_out_rank = vbmf.EVBMF(tensorly.unfold(weight, 0))[1].shape[0]
 
@@ -237,7 +242,13 @@ class MuscoTucker(nn.Module):
         
         weakened_in_rank = init_in_rank - int(reduction_rate * (init_in_rank - extreme_in_rank))
         weakened_out_rank = init_out_rank - int(reduction_rate * (init_out_rank - extreme_out_rank))
-        
+        '''
+
+        init_in_rank, init_out_rank = TuckerBlock.exact_rank(weight)
+
+        weakened_in_rank = int(init_in_rank * (1. - reduction_rate))
+        weakened_out_rank = int(init_out_rank - (1. - reduction_rate))
+
         return weakened_in_rank, weakened_out_rank
         
     def forward(self,x):
