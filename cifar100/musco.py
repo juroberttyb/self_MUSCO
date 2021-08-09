@@ -36,7 +36,7 @@ def resnet18_factorize(net):
 
                         if isinstance(layer, nn.Conv2d):
                             if (layer.in_channels > 3 and layer.kernel_size[0] > 1 and layer.kernel_size[1] > 1):
-                                print("decomposing " + str(layer))
+                                # print("decomposing " + str(layer))
                                 setattr(block, e2, fr.TuckerBlock(layer))
 
     return net
@@ -54,7 +54,7 @@ def resnet18_MuscoStep(net, reduction_rate):
                         layer = getattr(block, e2)
 
                         if isinstance(layer, fr.TuckerBlock) or isinstance(layer, fr.MuscoTucker):
-                            print("MUSCO decomposing " + str(layer))
+                            # print("MUSCO decomposing " + str(layer))
                             setattr(block, e2, fr.MuscoTucker(layer, reduction_rate = reduction_rate))
 
     return net
@@ -67,23 +67,21 @@ if __name__ == '__main__':
     net = res18.resnet18(pretrained=True) # arch.Net() # res18.resnet18()
     # net.load_state_dict(torch.load('baseline.pth'))
     net = net.cuda()
-    bl.validation(net, val_loader, criterion)
     # summary(net, input_size=(3, 32, 32))
+    bl.validation(net, val_loader, criterion)
 
     net = resnet18_factorize(net.cpu()).cuda() # fr.TuckerFactorze(net.cpu()).cuda()
+    summary(net, input_size=(3, 32, 32))
     bl.validation(net, val_loader, criterion)
-    # summary(net, input_size=(3, 32, 32))
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
     # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
     
-    # print(net.layer1[0])
-    # print(type(net.layer1[0][0]))
     # '''
     step = 2
     for i in range(step):
         net = resnet18_MuscoStep(net.cpu(), reduction_rate=0.2).cuda()
-        bl.validation(net, val_loader, criterion)
         summary(net, input_size=(3, 32, 32))
+        bl.validation(net, val_loader, criterion)
 
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
