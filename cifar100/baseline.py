@@ -6,28 +6,31 @@ import torchvision
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import numpy as np
+import res_arch as res
+
+batch_size, epoch = 100, 150
 
 def prepare_loader(batch_size):
     train_transform = transforms.Compose(
                 [transforms.ToTensor(),
                  transforms.Resize(224),
                  transforms.RandomHorizontalFlip(),
-                 transforms.Normalize((0.45, 0.45, 0.45), (0.225, 0.225, 0.225))])
+                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
 
     val_transform = transforms.Compose(
                 [transforms.ToTensor(),
                  transforms.Resize(224),
-                 transforms.Normalize((0.45, 0.45, 0.45), (0.225, 0.225, 0.225))])
+                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
 
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=train_transform)
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                            shuffle=True, num_workers=2)
+                                            shuffle=True, num_workers=4)
 
     val_set = torchvision.datasets.CIFAR10(root='./data', train=False,
                                         download=True, transform=val_transform)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size,
-                                            shuffle=False, num_workers=2)
+                                            shuffle=False, num_workers=4)
 
     return train_loader, val_loader
 
@@ -81,7 +84,7 @@ def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader
             loss.backward()
             optimizer.step()
 
-            if i % 10 == 0:
+            if i % 50 == 0:
                 print('[%d %d] loss: %.3f' %
                     (k, i, loss.item()))
         
@@ -93,16 +96,13 @@ def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader
         torch.save(net.state_dict(), model_path)
 
 if __name__ == "__main__":
-
-    batch_size = 100
-
     train_loader, val_loader = prepare_loader(batch_size)
 
-    net = arch.Net() #.cuda()
+    net = res.resnet50().cuda() # arch.Net()
 
     import torch.optim as optim
 
-    criterion = nn.CrossEntropyLoss() #.cuda()
+    criterion = nn.CrossEntropyLoss().cuda()
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
-    train(net, batch_size, 250, criterion, optimizer, train_loader, val_loader, "baseline.pth")
+    train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, "baseline.pth")

@@ -67,11 +67,11 @@ def resnet_MuscoStep(net, reduction_rate):
     return net
 
 if __name__ == '__main__':
-    batch_size, epoch = 32, 100
-    train_loader, val_loader = bl.prepare_loader(batch_size=batch_size)
+    epoch = 100
+    train_loader, val_loader = bl.prepare_loader(batch_size=bl.batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
 
-    net = res.resnet50(pretrained=True) # arch.Net() # res18.resnet18()
+    net = res.resnet50() # arch.Net() # res18.resnet18()
     # net.load_state_dict(torch.load('baseline.pth'))
     net = net.cuda()
     # summary(net, input_size=(3, 32, 32))
