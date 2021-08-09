@@ -6,7 +6,7 @@ import tensorly.decomposition as td
 import tensorly
 import vbmf
 
-# 待修改MuscoSVD, CPBlock
+# CPBlock
 
 class SVDBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
@@ -238,9 +238,6 @@ class MuscoTucker(nn.Module):
         extreme_out_rank = vbmf.EVBMF(tensorly.unfold(weight, 0))[1].shape[0]
 
         init_in_rank, init_out_rank = TuckerBlock.exact_rank(weight)
-
-        # init_in_rank = weight.shape[1]
-        # init_out_rank = weight.shape[0]
         
         weakened_in_rank = init_in_rank - int(reduction_rate * (init_in_rank - extreme_in_rank))
         weakened_out_rank = init_out_rank - int(reduction_rate * (init_out_rank - extreme_out_rank))
