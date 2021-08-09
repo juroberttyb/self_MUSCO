@@ -61,6 +61,8 @@ def resnet_MuscoStep(net, reduction_rate):
                         if isinstance(layer, fr.TuckerBlock) or isinstance(layer, fr.MuscoTucker):
                             # print("MUSCO decomposing " + str(layer))
                             setattr(block, e2, fr.MuscoTucker(layer, reduction_rate = reduction_rate))
+                        elif isinstance(layer, fr.SVDBlock) or isinstance(layer, fr.MuscoSVD):
+                            setattr(block, e2, fr.MuscoSVD(layer, reduction_rate = reduction_rate))
 
     return net
 
@@ -84,14 +86,15 @@ if __name__ == '__main__':
 
     # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
 
-    '''
+    # '''
     step = 2
     for i in range(step):
         net = resnet_MuscoStep(net.cpu(), reduction_rate=0.2).cuda()
-        summary(net, input_size=(3, 32, 32))
+        # summary(net, input_size=(3, 32, 32))
+        print(net)
         bl.validation(net, val_loader, criterion)
 
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
         # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)  
-    '''
+    # '''

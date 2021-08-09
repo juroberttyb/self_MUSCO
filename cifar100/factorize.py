@@ -85,7 +85,7 @@ class SVDBlock(nn.Module):
 
 class MuscoSVD(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, net, reduction_rate, stride=1, bias=False):
+    def __init__(self, net, reduction_rate):
         super(MuscoSVD, self).__init__()
 
         element = net.feature[0].weight.data.numpy()
@@ -97,10 +97,7 @@ class MuscoSVD(nn.Module):
         weight = weight.transpose()
         weight = weight.reshape((*weight.shape, 1, 1))
 
-        try:
-            self.feature = SVDBlock.SVDfactorize(weight, stride, rank, net.bias.data)
-        except:
-            self.feature = SVDBlock.SVDfactorize(weight, stride, rank)
+        self.feature = SVDBlock.SVDfactorize(weight, rank, net.bias)
 
     def Reform(self, u, v):
 
