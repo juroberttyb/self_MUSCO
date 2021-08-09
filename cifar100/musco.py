@@ -51,7 +51,6 @@ if __name__ == '__main__':
     net = net.cuda()
     bl.validation(net, val_loader, criterion)
     # summary(net, input_size=(3, 32, 32))
-    print(type(net.layer1[0]))
 
     net = resnet18_factorize(net.cpu()).cuda() # fr.TuckerFactorze(net.cpu()).cuda()
     bl.validation(net, val_loader, criterion)
@@ -59,7 +58,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
     # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
     
-    print(net.layer1)
+    # print(net.layer1)
     '''
     step = 2
     for i in range(step):
