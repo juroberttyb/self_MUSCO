@@ -57,6 +57,14 @@ class SVDBlock(nn.Module):
         u, s, v = np.linalg.svd(weight, full_matrices=False)
         # full_matrices=False -> the shapes are (..., M, K) and (..., K, N), respectively, where K = min(M, N)
         
+        '''
+        print('--- before')
+        print(u.shape)
+        print(s.shape)
+        print(v.shape)
+        print('---')
+        '''
+        
         if rank != None:
             s = s[:rank]
 
@@ -67,6 +75,14 @@ class SVDBlock(nn.Module):
 
         u = u[:, :s.shape[0]]
         v = v[:s.shape[0], :]
+
+        '''
+        print('--- after')
+        print(u.shape)
+        print(s.shape)
+        print(v.shape)
+        print('---')
+        '''
         
         if with_s:
             return u, s, v

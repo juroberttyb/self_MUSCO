@@ -91,11 +91,11 @@ if __name__ == '__main__':
     # '''
     step = 2
     for i in range(step):
-        net = resnet_MuscoStep(net.cpu(), reduction_rate=0.2).cuda()
+        net = resnet_MuscoStep(net.cpu(), reduction_rate=0.).cuda()
         # summary(net, input_size=(3, 32, 32))
         # print(net)
         bl.validation(net, val_loader, criterion)
-        print("MUSCO step %d" % step)
+        print("MUSCO step %d" % i)
 
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
