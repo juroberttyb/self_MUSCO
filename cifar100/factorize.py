@@ -6,8 +6,6 @@ import tensorly.decomposition as td
 import tensorly
 import vbmf
 
-# CPBlock
-
 class SVDBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, net, stride = 1, rank=None):
@@ -131,16 +129,21 @@ class MuscoSVD(nn.Module):
 
 class TuckerBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, net, rank_mode = 'exact', padding = 'same', bias = False):
+    def __init__(self, layer, rank_mode = 'exact'):
         super(TuckerBlock, self).__init__()
 
-        weight = net.weight.data.numpy()
-
+        weight = layer.weight.data.numpy()
         rank_in, rank_out = self.rank_select(weight, rank_mode)
 
-        compress = nn.Conv2d(weight.shape[1], rank_in, kernel_size = 1, bias = False)
-        core = nn.Conv2d(rank_in, rank_out, kernel_size = weight.shape[2], padding = padding, bias = False)
-        restore = nn.Conv2d(rank_out, weight.shape[0], kernel_size = 1, bias = bias)
+        compress = nn.Conv2d(layer.in_channels, rank_in, kernel_size = 1, bias = False)
+        core = nn.Conv2d(rank_in, rank_out, kernel_size = layer.kernel_size, 
+                         stride = layer.stride, padding = layer.padding, 
+                         groups = layer.groups, dilation = layer.dilation, bias = False)
+        if layer.bias != None:
+            restore = nn.Conv2d(rank_out, layer.out_channels, kernel_size = 1, bias = True)
+            restore.bias.data = layer.bias.data
+        else:
+            restore = nn.Conv2d(rank_out, layer.out_channels, kernel_size = 1, bias = False)
 
         c, [t, s] = td.partial_tucker(weight, modes = [0, 1], rank = [rank_out, rank_in])
 
@@ -152,9 +155,6 @@ class TuckerBlock(nn.Module):
 
         t = np.reshape(t, (t.shape[0], -1, 1, 1))
         restore.weight.data = torch.from_numpy(t.copy())
-
-        if bias:
-            restore.bias.data = net.bias.data
 
         self.feature = nn.Sequential(compress, core, restore)
 
@@ -247,6 +247,7 @@ class MuscoTucker(nn.Module):
     def forward(self,x):
         return self.feature(x)
 
+# CPBlock hasn't been refined and tested
 class CPBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, weight, stride = 1, padding = 1, groups = 1, dilation = 1):
@@ -297,13 +298,13 @@ def TuckerFactorze(net):
     for e in dir(net):
         layer = getattr(net, e)
         if isinstance(layer, nn.Conv2d):
-            # print("get conv2d layer " + e)
+            print("conv2d layer " + e + " detected")
 
             shape = layer.weight.data.numpy().shape
             if (shape[1] > 3 and shape[2] > 1 and shape[3] > 1):
                 print("Block " + e + " catched")
                 
-                setattr(net, e, TuckerBlock(layer, bias = True))
+                setattr(net, e, TuckerBlock(layer))
     return net
 
 def TuckerMuscoStep(net, reduction_rate):
@@ -312,5 +313,13 @@ def TuckerMuscoStep(net, reduction_rate):
         if isinstance(layer, TuckerBlock) or isinstance(layer, MuscoTucker):
             print("Block " + e + " catched")
             
-            setattr(net, e, MuscoTucker(layer, reduction_rate = reduction_rate, bias = True))
+            setattr(net, e, MuscoTucker(layer, reduction_rate = reduction_rate))
     return net
+
+def FullFactorize(net):
+    # SVD and Tucker Both applied
+    ...
+
+def FullMusco(net, reduction_rate):
+    # SVD and Tucker Both applied
+    ...
