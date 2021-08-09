@@ -13,10 +13,11 @@ class SVDBlock(nn.Module):
         
         weight = layer.weight.data.numpy()
         
-        self.feature = self.SVDfactorize(weight, rank, layer.bias)
+        self.feature = SVDBlock.SVDfactorize(weight, rank, layer.bias)
 
-    def SVDfactorize(self, weight, rank, bias):
-        u, v = self.TorchFormSVD(weight, rank)
+    @staticmethod
+    def SVDfactorize(weight, rank, bias):
+        u, v = SVDBlock.TorchFormSVD(weight, rank)
 
         element = nn.Conv2d(u.shape[1], u.shape[0], kernel_size = 1, bias = False)
         if bias == None:
@@ -30,14 +31,14 @@ class SVDBlock(nn.Module):
 
         return nn.Sequential(element, restore)
 
-    # filters: weights of 1x1 conv layer
-    def TorchFormSVD(self, filters, rank, with_s=False):
+    @staticmethod
+    def TorchFormSVD(filters, rank, with_s=False):
         filters = np.transpose(filters.reshape((filters.shape[0], -1)))
 
         if with_s:
-            u, s, v = self.SVD(filters, with_s=with_s, rank=rank)
+            u, s, v = SVDBlock.SVD(filters, with_s=with_s, rank=rank)
         else:
-            u, v = self.SVD(filters, with_s=with_s, rank=rank)
+            u, v = SVDBlock.SVD(filters, with_s=with_s, rank=rank)
         
         u = u.transpose()
         u = u.reshape((*u.shape, 1, 1))
@@ -51,8 +52,8 @@ class SVDBlock(nn.Module):
             return u, s, v
         return u, v
 
-    # weight: numpy array of shape chin * chout
-    def SVD(self, weight, with_s, rank=None):
+    @staticmethod
+    def SVD(weight, with_s, rank=None):
         u, s, v = np.linalg.svd(weight, full_matrices=False)
         # full_matrices=False -> the shapes are (..., M, K) and (..., K, N), respectively, where K = min(M, N)
 
@@ -85,19 +86,19 @@ class SVDBlock(nn.Module):
 
 class MuscoSVD(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, net, reduction_rate):
+    def __init__(self, block, reduction_rate):
         super(MuscoSVD, self).__init__()
 
-        element = net.feature[0].weight.data.numpy()
-        restore = net.feature[1].weight.data.numpy()
+        element = block.feature[0].weight.data.numpy()
+        restore = block.feature[1].weight.data.numpy()
 
         weight = self.Reform(element, restore)
-        rank = self.weakened_rank(self, weight, reduction_rate)
+        rank = self.weakened_rank(weight, reduction_rate)
 
         weight = weight.transpose()
         weight = weight.reshape((*weight.shape, 1, 1))
 
-        self.feature = SVDBlock.SVDfactorize(weight, rank, net.bias)
+        self.feature = SVDBlock.SVDfactorize(weight, rank, block.feature[1].bias)
 
     def Reform(self, u, v):
 
@@ -183,24 +184,24 @@ class TuckerBlock(nn.Module):
 
 class MuscoTucker(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, layer, reduction_rate):
+    def __init__(self, block, reduction_rate):
         super(MuscoTucker, self).__init__()
 
-        compress_weight = layer.feature[0].weight.data.numpy()
-        core_weight = layer.feature[1].weight.data.numpy()
-        restore_weight = layer.feature[2].weight.data.numpy()
+        compress_weight = block.feature[0].weight.data.numpy()
+        core_weight = block.feature[1].weight.data.numpy()
+        restore_weight = block.feature[2].weight.data.numpy()
         
         rankin, rankout = self.weakened_rank(core_weight, reduction_rate)
 
-        compress = nn.Conv2d(layer.feature[0].in_channels, rankin, kernel_size = 1, bias = False)
-        core = nn.Conv2d(rankin, rankout, kernel_size = layer.feature[1].kernel_size, 
-                         stride = layer.feature[1].stride, padding = layer.feature[1].padding, 
-                         groups = layer.feature[1].groups, dilation = layer.feature[1].dilation, bias = False)
-        if layer.feature[2].bias != None:
-            restore = nn.Conv2d(rankout, layer.feature[2].out_channels, kernel_size = 1, bias = True)
-            restore.bias.data = layer.feature[2].bias.data
+        compress = nn.Conv2d(block.feature[0].in_channels, rankin, kernel_size = 1, bias = False)
+        core = nn.Conv2d(rankin, rankout, kernel_size = block.feature[1].kernel_size, 
+                         stride = block.feature[1].stride, padding = block.feature[1].padding, 
+                         groups = block.feature[1].groups, dilation = block.feature[1].dilation, bias = False)
+        if block.feature[2].bias != None:
+            restore = nn.Conv2d(rankout, block.feature[2].out_channels, kernel_size = 1, bias = True)
+            restore.bias.data = block.feature[2].bias.data
         else:
-            restore = nn.Conv2d(rankout, layer.feature[2].out_channels, kernel_size = 1, bias = False)
+            restore = nn.Conv2d(rankout, block.feature[2].out_channels, kernel_size = 1, bias = False)
         
         c, [t, s] = td.partial_tucker(core_weight, modes = [0, 1], rank = [rankout, rankin])
 
