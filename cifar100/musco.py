@@ -75,14 +75,16 @@ if __name__ == '__main__':
     net.load_state_dict(torch.load('baseline.pth', map_location='cpu'))
     net = net.cuda()
     # summary(net, input_size=(3, 32, 32))
-    print(net)
+    # print(net)
     bl.validation(net, val_loader, criterion)
+    print('load success')
 
     net = resnet_factorize(net.cpu()).cuda() # fr.TuckerFactorze(net.cpu()).cuda()
     # summary(net, input_size=(3, 32, 32))
-    print(net)
+    # print(net)
     bl.validation(net, val_loader, criterion)
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
+    print('factorize success')
 
     # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
 
@@ -91,8 +93,9 @@ if __name__ == '__main__':
     for i in range(step):
         net = resnet_MuscoStep(net.cpu(), reduction_rate=0.2).cuda()
         # summary(net, input_size=(3, 32, 32))
-        print(net)
+        # print(net)
         bl.validation(net, val_loader, criterion)
+        print("MUSCO step %d" % step)
 
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
