@@ -198,15 +198,15 @@ class MuscoTucker(nn.Module):
         
         rankin, rankout = self.weakened_rank(core_weight, reduction_rate)
 
-        compress = nn.Conv2d(layer.in_channels, rankin, kernel_size = 1, bias = False)
-        core = nn.Conv2d(rankin, rankout, kernel_size = layer.kernel_size, 
-                         stride = layer.stride, padding = layer.padding, 
-                         groups = layer.groups, dilation = layer.dilation, bias = False)
-        if layer.bias != None:
-            restore = nn.Conv2d(rankout, layer.out_channels, kernel_size = 1, bias = True)
-            restore.bias.data = layer.bias.data
+        compress = nn.Conv2d(layer.feature[0].in_channels, rankin, kernel_size = 1, bias = False)
+        core = nn.Conv2d(rankin, rankout, kernel_size = layer.feature[1].kernel_size, 
+                         stride = layer.feature[1].stride, padding = layer.feature[1].padding, 
+                         groups = layer.feature[1].groups, dilation = layer.feature[1].dilation, bias = False)
+        if layer.feature[2].bias != None:
+            restore = nn.Conv2d(rankout, layer.feature[2].out_channels, kernel_size = 1, bias = True)
+            restore.bias.data = layer.feature[2].bias.data
         else:
-            restore = nn.Conv2d(rankout, layer.out_channels, kernel_size = 1, bias = False)
+            restore = nn.Conv2d(rankout, layer.feature[2].out_channels, kernel_size = 1, bias = False)
         
         c, [t, s] = td.partial_tucker(core_weight, modes = [0, 1], rank = [rankout, rankin])
 
