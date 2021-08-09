@@ -41,12 +41,30 @@ def resnet18_factorize(net):
 
     return net
 
+def resnet18_MuscoStep(net, reduction_rate):
+    for e1 in dir(net):
+        sequential = getattr(net, e1) # layer1, layer2...
+
+        if isinstance(sequential, nn.modules.container.Sequential):
+            print('found sequential ' + str(sequential))
+            for block in sequential: # block
+                
+                if isinstance(block, res18.BasicBlock):
+                    for e2 in dir(block): # layer
+                        layer = getattr(block, e2)
+
+                        if isinstance(layer, fr.TuckerBlock) or isinstance(layer, fr.MuscoTucker):
+                            print("MUSCO decomposing " + str(layer))
+                            setattr(block, e2, fr.MuscoTucker(layer, reduction_rate = reduction_rate))
+
+    return net
+
 if __name__ == '__main__':
     batch_size, epoch = 100, 100
     train_loader, val_loader = bl.prepare_loader(batch_size=batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
 
-    net = res18.resnet18() # arch.Net() # res18.resnet18()
+    net = res18.resnet18(pretrained=True) # arch.Net() # res18.resnet18()
     # net.load_state_dict(torch.load('baseline.pth'))
     net = net.cuda()
     bl.validation(net, val_loader, criterion)
@@ -58,15 +76,16 @@ if __name__ == '__main__':
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
     # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
     
-    # print(net.layer1)
-    '''
+    # print(net.layer1[0])
+    # print(type(net.layer1[0][0]))
+    # '''
     step = 2
     for i in range(step):
-        net = fr.TuckerMuscoStep(net.cpu(), reduction_rate=0.2).cuda()
+        net = resnet18_MuscoStep(net.cpu(), reduction_rate=0.2).cuda()
         bl.validation(net, val_loader, criterion)
         summary(net, input_size=(3, 32, 32))
 
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
         # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)  
-    '''
+    # '''

@@ -189,20 +189,24 @@ class TuckerBlock(nn.Module):
 
 class MuscoTucker(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, net, reduction_rate, padding = 'same', bias = False):
+    def __init__(self, layer, reduction_rate):
         super(MuscoTucker, self).__init__()
 
-        compress_weight = net.feature[0].weight.data.numpy()
-        core_weight = net.feature[1].weight.data.numpy()
-        restore_weight = net.feature[2].weight.data.numpy()
+        compress_weight = layer.feature[0].weight.data.numpy()
+        core_weight = layer.feature[1].weight.data.numpy()
+        restore_weight = layer.feature[2].weight.data.numpy()
         
         rankin, rankout = self.weakened_rank(core_weight, reduction_rate)
-        kernel_size = core_weight.shape[2]
-        input_dim, output_dim = compress_weight.shape[1], restore_weight.shape[0]
 
-        compress = nn.Conv2d(input_dim, rankin, kernel_size = 1, bias = False)
-        core = nn.Conv2d(rankin, rankout, kernel_size = kernel_size, padding = padding, bias = False)
-        restore = nn.Conv2d(rankout, output_dim, kernel_size = 1, bias = bias)
+        compress = nn.Conv2d(layer.in_channels, rankin, kernel_size = 1, bias = False)
+        core = nn.Conv2d(rankin, rankout, kernel_size = layer.kernel_size, 
+                         stride = layer.stride, padding = layer.padding, 
+                         groups = layer.groups, dilation = layer.dilation, bias = False)
+        if layer.bias != None:
+            restore = nn.Conv2d(rankout, layer.out_channels, kernel_size = 1, bias = True)
+            restore.bias.data = layer.bias.data
+        else:
+            restore = nn.Conv2d(rankout, layer.out_channels, kernel_size = 1, bias = False)
         
         c, [t, s] = td.partial_tucker(core_weight, modes = [0, 1], rank = [rankout, rankin])
 
@@ -225,9 +229,6 @@ class MuscoTucker(nn.Module):
         # print(t.shape)
         # print("-----")
         restore.weight.data = torch.from_numpy(t.copy())
-
-        if bias:
-            restore.bias.data = net.feature[2].bias.data
 
         layers = [compress, core, restore]
 
