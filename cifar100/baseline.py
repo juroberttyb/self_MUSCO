@@ -1,3 +1,4 @@
+from numpy.core.fromnumeric import resize
 import arch
 import torch
 import torch.nn as nn
@@ -9,11 +10,13 @@ import numpy as np
 def prepare_loader(batch_size):
     train_transform = transforms.Compose(
                 [transforms.ToTensor(),
+                 transforms.Resize(224),
                  transforms.RandomHorizontalFlip(),
                  transforms.Normalize((0.45, 0.45, 0.45), (0.225, 0.225, 0.225))])
 
     val_transform = transforms.Compose(
                 [transforms.ToTensor(),
+                 transforms.Resize(224),
                  transforms.Normalize((0.45, 0.45, 0.45), (0.225, 0.225, 0.225))])
 
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
@@ -78,7 +81,7 @@ def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader
             loss.backward()
             optimizer.step()
 
-            if i % 250 == 0:
+            if i % 10 == 0:
                 print('[%d %d] loss: %.3f' %
                     (k, i, loss.item()))
         

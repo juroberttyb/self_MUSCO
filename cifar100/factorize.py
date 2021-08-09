@@ -8,25 +8,22 @@ import vbmf
 
 class SVDBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, net, stride = 1, rank=None):
+    def __init__(self, layer, rank=None):
         super(SVDBlock, self).__init__()
         
-        weight = net.weight.data.numpy()
+        weight = layer.weight.data.numpy()
         
-        try:
-            self.feature = self.SVDfactorize(weight, stride, rank, net.bias.data)
-        except:
-            self.feature = self.SVDfactorize(weight, stride, rank)
+        self.feature = self.SVDfactorize(weight, rank, layer.bias)
 
-    def SVDfactorize(self, weight, stride, rank, bias=None):
+    def SVDfactorize(self, weight, rank, bias):
         u, v = self.TorchFormSVD(weight, rank)
 
-        element = nn.Conv2d(u.shape[1], u.shape[0], kernel_size = 1, stride = stride, bias = False)
+        element = nn.Conv2d(u.shape[1], u.shape[0], kernel_size = 1, bias = False)
         if bias == None:
             restore = nn.Conv2d(v.shape[1], v.shape[0], kernel_size = 1, bias = False)
         else:
             restore = nn.Conv2d(v.shape[1], v.shape[0], kernel_size = 1, bias = True)
-            restore.bias.data = bias
+            restore.bias.data = bias.data
 
         element.weight.data = torch.from_numpy(u.copy())
         restore.weight.data = torch.from_numpy(v.copy())
@@ -316,11 +313,3 @@ def TuckerMuscoStep(net, reduction_rate):
             
             setattr(net, e, MuscoTucker(layer, reduction_rate = reduction_rate))
     return net
-
-def FullFactorize(net):
-    # SVD and Tucker Both applied
-    ...
-
-def FullMusco(net, reduction_rate):
-    # SVD and Tucker Both applied
-    ...
