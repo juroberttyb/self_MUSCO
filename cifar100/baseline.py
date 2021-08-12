@@ -49,7 +49,7 @@ def validation(net, val_loader, criterion, fast=False):
     total = 0
     val_loss = 0
     i = 0
-    fast_num = 1
+    fast_num = 3
     # since we're not training, we don't need to calculate the gradients for our outputs
     with torch.no_grad():
         for data in val_loader:
@@ -64,7 +64,7 @@ def validation(net, val_loader, criterion, fast=False):
             correct += (predicted == labels).sum().item()
 
             if i+1 == fast_num and fast:
-                print(val_loss.item() / (batch_size * fast_num))
+                # print(val_loss.item() / (batch_size * fast_num))
                 return val_loss.item() / (batch_size * fast_num)
             i = i+1
 
