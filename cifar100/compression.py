@@ -63,10 +63,11 @@ def resnet_MuscoStep(net, table, reduction_rate):
                             # print("MUSCO decomposing " + str(layer))
                             if table[i]:
                                 setattr(block, e2, fr.MuscoTucker(layer, reduction_rate = reduction_rate))
+                            i = i + 1
                         elif isinstance(layer, fr.SVDBlock) or isinstance(layer, fr.MuscoSVD):
                             if table[i]:
                                 setattr(block, e2, fr.MuscoSVD(layer, reduction_rate = reduction_rate))
-                        i = i + 1
+                            i = i + 1
 
     return net
 
