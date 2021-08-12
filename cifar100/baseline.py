@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import res_arch as res
 
-batch_size, epoch = 50, 150
+batch_size, epoch = 80, 150
 
 def prepare_loader(batch_size):
     train_transform = transforms.Compose(

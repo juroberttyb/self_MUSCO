@@ -7,6 +7,7 @@ import tensorly.decomposition as td
 import tensorly
 import vbmf
 
+# traditional SVD approach without lower rank
 class SVDBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, layer, rank=None):
@@ -101,48 +102,18 @@ class SVDBlock(nn.Module):
     def forward(self, x):    
         return self.feature(x)
 
-class MuscoSVD(nn.Module):
+# Dense layer SVD approach, not yet implemented but described in 
+# "CP-decomposition with Tensor Power Method for Convolutional Neural Networks Compression"
+class DenseBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, block, reduction_rate):
-        super(MuscoSVD, self).__init__()
+    def __init__(self, layer, rank=None):
+        super(DenseBlock, self).__init__()
+        self.feature = SVDBlock.SVDfactorize(weight, rank, layer.bias)
 
-        element = block.feature[0].weight.data.numpy()
-        restore = block.feature[1].weight.data.numpy()
-
-        weight = self.Reform(element, restore)
-        rank = self.weakened_rank(weight, reduction_rate)
-
-        weight = weight.transpose()
-        weight = weight.reshape((*weight.shape, 1, 1))
-
-        self.feature = SVDBlock.SVDfactorize(weight, rank, block.feature[1].bias)
-
-    def Reform(self, u, v):
-
-        u = u.reshape((u.shape[0], -1))
-        u = u.transpose()
-        
-        v = v.reshape((v.shape[0], -1))
-        v = v.transpose()
-
-        return np.matmul(u, v)
-
-    def weakened_rank(self, weight, reduction_rate):
-        '''
-        extreme_rank = vbmf.EVBMF(tensorly.unfold(weight, 1))[1].shape[0]
-        
-        init_rank = np.linalg.matrix_rank(weight, tol = None)
-        
-        weakened_rank = init_rank - int(reduction_rate * (init_rank - extreme_rank))
-        '''
-
-        weakened_rank = int(np.linalg.matrix_rank(weight, tol = None) * (1. - reduction_rate))
-        
-        return weakened_rank
-
-    def forward(self, x):
+    def forward(self, x):    
         return self.feature(x)
 
+# traditional Tucker approach without lower rank
 class TuckerBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, layer, rank_mode = 'exact'):
@@ -204,6 +175,50 @@ class TuckerBlock(nn.Module):
     def forward(self,x):
         return self.feature(x)
 
+# self-modified SVD version of "Automated Multi-Stage Compression of Neural Networks"
+class MuscoSVD(nn.Module):
+    ''' conv_weight, conv_bias: numpy '''
+    def __init__(self, block, reduction_rate):
+        super(MuscoSVD, self).__init__()
+
+        element = block.feature[0].weight.data.numpy()
+        restore = block.feature[1].weight.data.numpy()
+
+        weight = self.Reform(element, restore)
+        rank = self.weakened_rank(weight, reduction_rate)
+
+        weight = weight.transpose()
+        weight = weight.reshape((*weight.shape, 1, 1))
+
+        self.feature = SVDBlock.SVDfactorize(weight, rank, block.feature[1].bias)
+
+    def Reform(self, u, v):
+
+        u = u.reshape((u.shape[0], -1))
+        u = u.transpose()
+        
+        v = v.reshape((v.shape[0], -1))
+        v = v.transpose()
+
+        return np.matmul(u, v)
+
+    def weakened_rank(self, weight, reduction_rate):
+        '''
+        extreme_rank = vbmf.EVBMF(tensorly.unfold(weight, 1))[1].shape[0]
+        
+        init_rank = np.linalg.matrix_rank(weight, tol = None)
+        
+        weakened_rank = init_rank - int(reduction_rate * (init_rank - extreme_rank))
+        '''
+
+        weakened_rank = int(np.linalg.matrix_rank(weight, tol = None) * (1. - reduction_rate))
+        
+        return weakened_rank
+
+    def forward(self, x):
+        return self.feature(x)
+
+# self-modified Tucker version of "Automated Multi-Stage Compression of Neural Networks"
 class MuscoTucker(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, block, reduction_rate):
@@ -272,6 +287,7 @@ class MuscoTucker(nn.Module):
     def forward(self,x):
         return self.feature(x)
 
+# proposed method in "CP-decomposition with Tensor Power Method for Convolutional Neural Networks Compression"
 # CPBlock hasn't been refined and tested
 class CPBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''

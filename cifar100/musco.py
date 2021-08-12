@@ -67,32 +67,32 @@ def resnet_MuscoStep(net, reduction_rate):
     return net
 
 if __name__ == '__main__':
-    epoch = 3
+    epoch = 10
     train_loader, val_loader = bl.prepare_loader(batch_size=bl.batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
 
     net = res.resnet50() # arch.Net() # res18.resnet18()
     net.load_state_dict(torch.load('baseline.pth', map_location='cpu'))
     net = net.cuda()
-    # summary(net, input_size=(3, 32, 32))
+    summary(net, input_size=(3, 32, 32))
     # print(net)
     bl.validation(net, val_loader, criterion)
     print('load success')
 
     net = resnet_factorize(net.cpu()).cuda() # fr.TuckerFactorze(net.cpu()).cuda()
-    # summary(net, input_size=(3, 32, 32))
+    summary(net, input_size=(3, 32, 32))
     # print(net)
     bl.validation(net, val_loader, criterion)
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
     print('factorize success')
 
-    bl.train(net, bl.batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
+    # bl.train(net, bl.batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
 
     # '''
-    step = 5
+    step = 20
     for i in range(step):
         net = resnet_MuscoStep(net.cpu(), reduction_rate=0.1).cuda()
-        # summary(net, input_size=(3, 32, 32))
+        summary(net, input_size=(3, 32, 32))
         # print(net)
         bl.validation(net, val_loader, criterion)
         print("MUSCO step %d" % i)
