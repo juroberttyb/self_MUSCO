@@ -108,6 +108,9 @@ class DenseBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, layer, rank=None):
         super(DenseBlock, self).__init__()
+        
+        weight = layer.weight.data.numpy()
+        
         self.feature = SVDBlock.SVDfactorize(weight, rank, layer.bias)
 
     def forward(self, x):    
