@@ -108,7 +108,7 @@ class DenseBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
     def __init__(self, layer, rank=None):
         super(DenseBlock, self).__init__()
-        
+
         weight = layer.weight.data.numpy()
         
         self.feature = SVDBlock.SVDfactorize(weight, rank, layer.bias)
@@ -310,7 +310,7 @@ class CPBlock(nn.Module):
         weight = weight.reshape((weight.shape[0], weight.shape[1], -1))
         # normalize_factors = False, so that scalar return is all one
         print("decomposing")
-        scalar, [_out, _in, kernel] = td.parafac(weight, rank , n_iter_max = 100) # , init = 'random') # , normalize_factors = True)
+        scalar, [_out, _in, kernel] = td.parafac(weight, rank , n_iter_max = 100, init = 'random') # , normalize_factors = True)
         # _out, _in, kernel = CPBlock.Tensor_Power_Method(weight, rank)
 
         _in = np.transpose(_in)
