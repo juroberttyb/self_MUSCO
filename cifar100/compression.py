@@ -136,6 +136,7 @@ def Res50_MUSCO_approach():
         print("doing sensitive check...")
         # bl.validation(net, val_loader, criterion)
         table = sensitive_check(net.cpu(), reduction_rate, val_loader, criterion)
+        print("doing sensitive done")
         # bl.validation(net.cuda(), val_loader, criterion)
         net = resnet_MuscoStep(net.cpu(), table, reduction_rate).cuda()
         info(net)
