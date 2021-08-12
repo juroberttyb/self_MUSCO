@@ -96,7 +96,7 @@ def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader
                     (k, i, loss.item()))
         
         train_loss.append(loss.item() / batch_size)
-        val_loss.append(validation(net, val_loader, criterion).cpu())
+        val_loss.append(validation(net, val_loader, criterion))
 
         plot_loss(train_loss, val_loss)
 
