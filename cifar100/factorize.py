@@ -291,49 +291,43 @@ class MuscoTucker(nn.Module):
 # CPBlock hasn't been refined and tested
 class CPBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, weight, stride = 1, padding = 1, groups = 1, dilation = 1):
+    def __init__(self, layer, rank=5):
         super(CPBlock, self).__init__()
 
-        kernel_size = weight.shape[2]
-        # weight = np.reshape(weight, (weight.shape[0], weight.shape[1], kernel_size * kernel_size))
+        down = nn.Conv2d(layer.in_channels, rank, kernel_size = 1, bias = False)
+        spatio = nn.Conv2d(rank, rank, kernel_size = layer.kernel_size, padding = layer.padding, groups = rank, bias = False)
+        print(spatio.weight.data.numpy().shape)
+        print(spatio.weight.chunk(rank, 0).shape)
+        if layer.bias == None:
+            restore = nn.Conv2d(rank, layer.out_channels, kernel_size = 1, bias = False)
+        else:
+            restore = nn.Conv2d(rank, layer.out_channels, kernel_size = 1, bias = True)
+            restore.bias.data = layer.bias.data
 
-        cin, cout = weight.shape[1], weight.shape[0]
-        r = self.approx_rank(weight)
-        
-        self.compress = nn.Conv2d(cin, r, kernel_size = 1, stride = stride, bias = False)
-        self.right = nn.Conv2d(r, r, kernel_size = (kernel_size, 1), padding = (padding, 0), groups = r, bias = False)
-        self.down = nn.Conv2d(r, r, kernel_size = (1, kernel_size), padding = (0, padding), groups = r, bias = False)
-        self.restore = nn.Conv2d(r, cout, kernel_size = 1, bias = False)
-
+        weight = layer.weight.data.numpy()
+        weight = weight.reshape((weight.shape[0], weight.shape[1], -1))
         # normalize_factors = False, so that scalar return is all one
-        scalar, [_out, _in, kernel1, kernel2] = td.parafac(weight, r, n_iter_max = 100, normalize_factors = True)
+        scalar, [_out, _in, kernel] = td.parafac(weight, rank, n_iter_max = 100, normalize_factors = True, init = 'random')
 
         _in = np.transpose(_in)
-        _in = np.array([_in[i] * scalar[i] for i in range(r)])
-        _in = np.reshape(_in, (r, -1, 1, 1))
-        self.compress.weight.data = torch.from_numpy(_in.copy())
+        _in = np.array([_in[i] * scalar[i] for i in range(rank)])
+        _in = np.reshape(_in, (rank, layer.in_channels, 1, 1))
+        down.weight.data = torch.from_numpy(_in.copy())
 
-        kernel1 = np.transpose(kernel1)
-        kernel1 = np.reshape(kernel1, (-1, 1, kernel_size, 1))
-        self.right.weight.data = torch.from_numpy(kernel1.copy())
+        kernel = np.transpose(kernel)
+        kernel = np.reshape(kernel, (rank, 1, layer.kernel_size[0], layer.kernel_size[1]))
+        spatio.weight.data = torch.from_numpy(kernel.copy())
 
-        kernel2 = np.transpose(kernel2)
-        kernel2 = np.reshape(kernel2, (-1, 1, 1, kernel_size))
-        self.down.weight.data = torch.from_numpy(kernel2.copy())
+        _out = np.reshape(_out, (layer.out_channels, rank, 1, 1))
+        restore.weight.data = torch.from_numpy(_out.copy())
 
-        _out = np.reshape(_out, (-1, r, 1, 1))
-        self.restore.weight.data = torch.from_numpy(_out.copy())
+        self.feature = nn.Sequential(down, spatio, restore)
 
-    def approx_rank(self, weight):
-        return 48 # weight.shape[0] * weight.shape[2] # * weight.shape[1] # * weight.shape[3]
-        
-    def forward(self,x):
-        x = self.compress(x)
-        x = self.right(x)
-        x = self.down(x)
-        x = self.restore(x)
-            
-        return x
+    def Tensor_Power_Method(self, weight, rank):
+        ...
+
+    def forward(self, x):
+        return self.feature(x)
 
 def TuckerFactorze(net):
     for e in dir(net):

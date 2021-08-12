@@ -22,7 +22,7 @@ def info(net):
 
 import res_arch as res
 
-def resnet_factorize(net):
+def resnet_Tucker_factorize(net):
     for e1 in dir(net):
         sequential = getattr(net, e1) # layer1, layer2...
 
@@ -66,7 +66,7 @@ def resnet_MuscoStep(net, reduction_rate):
 
     return net
 
-if __name__ == '__main__':
+def Res50_MUSCO_approach():
     epoch = 10
     train_loader, val_loader = bl.prepare_loader(batch_size=bl.batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     bl.validation(net, val_loader, criterion)
     print('load success')
 
-    net = resnet_factorize(net.cpu()).cuda() # fr.TuckerFactorze(net.cpu()).cuda()
+    net = resnet_Tucker_factorize(net.cpu()).cuda() # fr.TuckerFactorze(net.cpu()).cuda()
     summary(net, input_size=(3, 32, 32))
     # print(net)
     bl.validation(net, val_loader, criterion)
@@ -101,3 +101,51 @@ if __name__ == '__main__':
         
         bl.train(net, bl.batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)  
     # '''
+
+def resnet_CP_factorize(net):
+    for e1 in dir(net):
+        sequential = getattr(net, e1) # layer1, layer2...
+
+        if isinstance(sequential, nn.modules.container.Sequential):
+            # print('found sequential ' + str(sequential))
+            for block in sequential: # block
+                
+                if isinstance(block, res.Bottleneck):
+                    for e2 in dir(block): # layer
+                        layer = getattr(block, e2)
+
+                        if isinstance(layer, nn.Conv2d):
+                            if (layer.in_channels > 3 and layer.kernel_size != (1,1)):
+                                # print("tucker decomposing " + str(layer))
+                                setattr(block, e2, fr.CPBlock(layer))
+                            elif (layer.kernel_size == (1,1)):
+                                # print("svd decomposing " + str(layer))
+                                # setattr(block, e2, fr.SVDBlock(layer))
+                                ...
+                            else:
+                                print("nothing matched")
+
+    return net
+
+def Res50_CPTPM_approach():
+    epoch = 10
+    train_loader, val_loader = bl.prepare_loader(batch_size=bl.batch_size)
+    criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "cptpm.pth" #.cuda()
+
+    net = res.resnet50() # arch.Net() # res18.resnet18()
+    net.load_state_dict(torch.load('baseline.pth', map_location='cpu'))
+    net = net.cuda()
+    # summary(net, input_size=(3, 32, 32))
+    # print(net)
+    # bl.validation(net, val_loader, criterion)
+    print('load success')
+
+    net = resnet_CP_factorize(net.cpu()).cuda()
+    # summary(net, input_size=(3, 32, 32))
+    # print(net)
+    bl.validation(net, val_loader, criterion)
+    optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
+    print('factorize success')
+
+if __name__ == '__main__':
+    Res50_CPTPM_approach()
