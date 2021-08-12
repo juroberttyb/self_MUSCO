@@ -345,25 +345,4 @@ class CPBlock(nn.Module):
 
     def forward(self, x):
         return self.feature(x)
-
-def TuckerFactorze(net):
-    for e in dir(net):
-        layer = getattr(net, e)
-        if isinstance(layer, nn.Conv2d):
-            print("conv2d layer " + e + " detected")
-
-            shape = layer.weight.data.numpy().shape
-            if (shape[1] > 3 and shape[2] > 1 and shape[3] > 1):
-                print("Block " + e + " catched")
-                
-                setattr(net, e, TuckerBlock(layer))
-    return net
-
-def TuckerMuscoStep(net, reduction_rate):
-    for e in dir(net):
-        layer = getattr(net, e)
-        if isinstance(layer, TuckerBlock) or isinstance(layer, MuscoTucker):
-            print("Block " + e + " catched")
-            
-            setattr(net, e, MuscoTucker(layer, reduction_rate = reduction_rate))
-    return net
+        

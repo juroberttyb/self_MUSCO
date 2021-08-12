@@ -44,10 +44,12 @@ def plot_loss(train_loss, val_loss):
     plt.legend(['train', 'val'], loc='upper left')
     plt.savefig('loss.png')
 
-def validation(net, val_loader, criterion):
+def validation(net, val_loader, criterion, fast=False):
     correct = 0
     total = 0
     val_loss = 0
+    i = 0
+    fast_num = 1
     # since we're not training, we don't need to calculate the gradients for our outputs
     with torch.no_grad():
         for data in val_loader:
@@ -61,12 +63,17 @@ def validation(net, val_loader, criterion):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
+            if i+1 == fast_num and fast:
+                print(val_loss.item() / (batch_size * fast_num))
+                return val_loss.item() / (batch_size * fast_num)
+            i = i+1
+
     print('Accuracy of the network on the 10000 test images: %.2f %%' % (
         100 * correct / total))
 
     val_loss = val_loss / 10000.
 
-    return val_loss
+    return val_loss.item()
 
 def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, model_path):
     train_loss, val_loss = [], []
