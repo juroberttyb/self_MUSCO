@@ -102,7 +102,7 @@ def Res50_MUSCO_approach():
         bl.train(net, bl.batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)  
     # '''
 
-def resnet_CP_factorize(net):
+def resnet_CP_factorize(net, rank):
     for e1 in dir(net):
         sequential = getattr(net, e1) # layer1, layer2...
 
@@ -117,7 +117,7 @@ def resnet_CP_factorize(net):
                         if isinstance(layer, nn.Conv2d):
                             if (layer.in_channels > 3 and layer.kernel_size != (1,1)):
                                 # print("tucker decomposing " + str(layer))
-                                setattr(block, e2, fr.CPBlock(layer))
+                                setattr(block, e2, fr.CPBlock(layer, rank=rank))
                             elif (layer.kernel_size == (1,1)):
                                 # print("svd decomposing " + str(layer))
                                 # setattr(block, e2, fr.SVDBlock(layer))
@@ -127,7 +127,7 @@ def resnet_CP_factorize(net):
 
     return net
 
-def Res50_CPTPM_approach():
+def Res50_CPTPM_approach(probe_rank, approx_rank):
     epoch = 10
     train_loader, val_loader = bl.prepare_loader(batch_size=bl.batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "cptpm.pth" #.cuda()
@@ -140,7 +140,7 @@ def Res50_CPTPM_approach():
     # bl.validation(net, val_loader, criterion)
     print('load success')
 
-    net = resnet_CP_factorize(net.cpu()).cuda()
+    net = resnet_CP_factorize(net.cpu(), probe_rank).cuda()
     # summary(net, input_size=(3, 32, 32))
     # print(net)
     bl.validation(net, val_loader, criterion)
@@ -148,4 +148,4 @@ def Res50_CPTPM_approach():
     print('factorize success')
 
 if __name__ == '__main__':
-    Res50_CPTPM_approach()
+    Res50_MUSCO_approach()

@@ -295,9 +295,8 @@ class CPBlock(nn.Module):
         super(CPBlock, self).__init__()
 
         down = nn.Conv2d(layer.in_channels, rank, kernel_size = 1, bias = False)
-        spatio = nn.Conv2d(rank, rank, kernel_size = layer.kernel_size, padding = layer.padding, groups = rank, bias = False)
-        print(spatio.weight.data.numpy().shape)
-        print(spatio.weight.chunk(rank, 0).shape)
+        spatio = nn.Conv2d(rank, rank, kernel_size = layer.kernel_size, stride = layer.stride, padding = layer.padding, groups = rank, bias = False)
+        # print(torch.stack(spatio.weight.chunk(rank, 0)).shape)
         if layer.bias == None:
             restore = nn.Conv2d(rank, layer.out_channels, kernel_size = 1, bias = False)
         else:
@@ -307,10 +306,12 @@ class CPBlock(nn.Module):
         weight = layer.weight.data.numpy()
         weight = weight.reshape((weight.shape[0], weight.shape[1], -1))
         # normalize_factors = False, so that scalar return is all one
-        scalar, [_out, _in, kernel] = td.parafac(weight, rank, n_iter_max = 100, normalize_factors = True, init = 'random')
+        print("decomposing")
+        scalar, [_out, _in, kernel] = td.parafac(weight, rank , n_iter_max = 100) # , init = 'random') # , normalize_factors = True)
+        # _out, _in, kernel = CPBlock.Tensor_Power_Method(weight, rank)
 
         _in = np.transpose(_in)
-        _in = np.array([_in[i] * scalar[i] for i in range(rank)])
+        # _in = np.array([_in[i] * scalar[i] for i in range(rank)])
         _in = np.reshape(_in, (rank, layer.in_channels, 1, 1))
         down.weight.data = torch.from_numpy(_in.copy())
 
@@ -323,8 +324,21 @@ class CPBlock(nn.Module):
 
         self.feature = nn.Sequential(down, spatio, restore)
 
-    def Tensor_Power_Method(self, weight, rank):
-        ...
+    @staticmethod
+    def Tensor_Power_Method(weight, rank):
+        _out, _in, kernel = [], [], []
+
+        print("itering")
+        for i in range(rank):
+            scalar, [temp_out, temp_in, temp_kernel] = td.parafac(weight, 1, n_iter_max = 100) # , init = 'random') # , normalize_factors = True
+            _out.append(temp_out)
+            _in.append(temp_in)
+            kernel.append(temp_kernel)
+            weight = weight - tensorly.cp_tensor.cp_to_tensor([scalar, [temp_out, temp_in, temp_kernel]])
+            print(np.linalg.norm(weight))
+        print("iter end")
+
+        return np.array(_out), np.array(_in), np.array(kernel)
 
     def forward(self, x):
         return self.feature(x)
