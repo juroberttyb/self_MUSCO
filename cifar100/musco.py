@@ -67,7 +67,7 @@ def resnet_MuscoStep(net, reduction_rate):
     return net
 
 if __name__ == '__main__':
-    epoch = 100
+    epoch = 3
     train_loader, val_loader = bl.prepare_loader(batch_size=bl.batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
 
@@ -86,10 +86,10 @@ if __name__ == '__main__':
     optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
     print('factorize success')
 
-    # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
+    bl.train(net, bl.batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)
 
     # '''
-    step = 3
+    step = 5
     for i in range(step):
         net = resnet_MuscoStep(net.cpu(), reduction_rate=0.1).cuda()
         # summary(net, input_size=(3, 32, 32))
@@ -99,5 +99,5 @@ if __name__ == '__main__':
 
         optimizer = torch.optim.SGD(net.parameters(), lr = lr, momentum = 0.9)
         
-        # bl.train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)  
+        bl.train(net, bl.batch_size, epoch, criterion, optimizer, train_loader, val_loader, path)  
     # '''

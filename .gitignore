@@ -1,2 +1,2 @@
 cifar100/data
-cifar100/baseline.pth
+*.pth
