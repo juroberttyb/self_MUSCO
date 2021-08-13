@@ -49,7 +49,7 @@ def validation(net, val_loader, criterion, fast=False):
     total = 0
     val_loss = 0
     i = 0
-    fast_num = 3
+    fast_num = 5
     # since we're not training, we don't need to calculate the gradients for our outputs
     with torch.no_grad():
         for data in val_loader:

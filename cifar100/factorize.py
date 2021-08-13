@@ -7,6 +7,20 @@ import tensorly.decomposition as td
 import tensorly
 import vbmf
 
+# Dense layer SVD approach, not yet implemented but described in 
+# "CP-decomposition with Tensor Power Method for Convolutional Neural Networks Compression"
+class DenseBlock(nn.Module):
+    ''' conv_weight, conv_bias: numpy '''
+    def __init__(self, layer, rank=None):
+        super(DenseBlock, self).__init__()
+
+        weight = layer.weight.data.numpy()
+        
+        self.feature = SVDBlock.SVDfactorize(weight, rank, layer.bias)
+
+    def forward(self, x):    
+        return self.feature(x)
+
 # traditional SVD approach without lower rank
 class SVDBlock(nn.Module):
     ''' conv_weight, conv_bias: numpy '''
@@ -98,20 +112,6 @@ class SVDBlock(nn.Module):
             v[i, :] = v[i, :] * s[i]
         
         return u, v
-
-    def forward(self, x):    
-        return self.feature(x)
-
-# Dense layer SVD approach, not yet implemented but described in 
-# "CP-decomposition with Tensor Power Method for Convolutional Neural Networks Compression"
-class DenseBlock(nn.Module):
-    ''' conv_weight, conv_bias: numpy '''
-    def __init__(self, layer, rank=None):
-        super(DenseBlock, self).__init__()
-
-        weight = layer.weight.data.numpy()
-        
-        self.feature = SVDBlock.SVDfactorize(weight, rank, layer.bias)
 
     def forward(self, x):    
         return self.feature(x)
@@ -345,4 +345,3 @@ class CPBlock(nn.Module):
 
     def forward(self, x):
         return self.feature(x)
-        
