@@ -25,12 +25,12 @@ def prepare_loader(batch_size):
     trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
                                             download=True, transform=train_transform)
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                            shuffle=True, num_workers=4)
+                                            shuffle=True, num_workers=2)
 
     val_set = torchvision.datasets.CIFAR10(root='./data', train=False,
                                         download=True, transform=val_transform)
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size,
-                                            shuffle=False, num_workers=4)
+                                            shuffle=False, num_workers=2)
 
     return train_loader, val_loader
 
@@ -49,7 +49,7 @@ def validation(net, val_loader, criterion, fast=False):
     total = 0
     val_loss = 0
     i = 0
-    fast_num = 8
+    fast_num = 10
     # since we're not training, we don't need to calculate the gradients for our outputs
     with torch.no_grad():
         for data in val_loader:
@@ -95,8 +95,8 @@ def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader
                 print('[%d %d] loss: %.3f' %
                     (k, i, loss.item()))
         
-            train_loss.append(loss.item() / batch_size)
-            val_loss.append(validation(net, val_loader, criterion, True))
+                train_loss.append(loss.item() / batch_size)
+                val_loss.append(validation(net, val_loader, criterion, True))
 
         if k % 2 == 0:
             validation(net, val_loader, criterion)
