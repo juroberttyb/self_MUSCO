@@ -49,7 +49,7 @@ def validation(net, val_loader, criterion, fast=False):
     total = 0
     val_loss = 0
     i = 0
-    fast_num = 5
+    fast_num = 8
     # since we're not training, we don't need to calculate the gradients for our outputs
     with torch.no_grad():
         for data in val_loader:
@@ -95,8 +95,11 @@ def train(net, batch_size, epoch, criterion, optimizer, train_loader, val_loader
                 print('[%d %d] loss: %.3f' %
                     (k, i, loss.item()))
         
-        train_loss.append(loss.item() / batch_size)
-        val_loss.append(validation(net, val_loader, criterion))
+            train_loss.append(loss.item() / batch_size)
+            val_loss.append(validation(net, val_loader, criterion, True))
+
+        if k % 2 == 0:
+            validation(net, val_loader, criterion)
 
         plot_loss(train_loss, val_loss)
 

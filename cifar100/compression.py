@@ -109,7 +109,7 @@ def sensitive_check(net, reduction_rate, val_loader, criterion):
     return val_loss
 
 def Res50_MUSCO_approach():
-    epoch = 20
+    epoch = 3
     train_loader, val_loader = bl.prepare_loader(batch_size=bl.batch_size)
     criterion, lr, path = nn.CrossEntropyLoss().cuda(), 0.001, "musco.pth" #.cuda()
 
