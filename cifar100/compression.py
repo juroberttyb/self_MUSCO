@@ -101,7 +101,7 @@ def sensitive_check(net, reduction_rate, val_loader, criterion):
     temp.sort()
     mid = temp[int(len(temp)/2)]
     for i in range(len(val_loss)):
-        if val_loss[i] > mid:
+        if val_loss[i] < mid:
             val_loss[i] = True
         else:
             val_loss[i] = False
